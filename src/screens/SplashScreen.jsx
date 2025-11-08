@@ -32,7 +32,7 @@ export default function SplashScreen() {
     ]).start();
 
     const t = setTimeout(() => {
-      navigation.replace('BuyerList');
+      navigation.replace('Main');
     }, 2000);
     return () => clearTimeout(t);
   }, [navigation]);

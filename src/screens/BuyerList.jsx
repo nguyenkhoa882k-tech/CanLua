@@ -1,45 +1,152 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, Modal, Animated, StatusBar, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, Modal, Animated, StatusBar, StyleSheet, ScrollView } from 'react-native';
 import { listBuyers, createBuyer, deleteBuyer, updateBuyer } from '../services/buyers';
-import { useNavigation } from '@react-navigation/native';
+import { storage } from '../services/storage';
+import BannerAd from '../components/BannerAd';
+import SimpleDatePicker from '../components/SimpleDatePicker';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 export default function BuyerList() {
   const [buyers, setBuyers] = useState([]);
   const [filteredBuyers, setFilteredBuyers] = useState([]);
   const [search, setSearch] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [editingBuyer, setEditingBuyer] = useState(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [filterType, setFilterType] = useState('all'); // 'all', 'year', 'custom'
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [fromDate, setFromDate] = useState(new Date());
+  const [toDate, setToDate] = useState(new Date());
   const navigation = useNavigation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
 
-  const load = async () => {
+  const loadBuyers = async () => {
     const data = await listBuyers();
-    setBuyers(data);
-    setFilteredBuyers(data);
-    // Trigger animation for list
+    
+    // Get settings for correct divisor
+    const settings = await storage.get('app_settings');
+    const digitDivisor = (settings && settings.fourDigitInput) ? 100 : 10;
+    
+    // Calculate totals for each buyer
+    const buyersWithTotals = await Promise.all(data.map(async (buyer) => {
+      const sellersData = await storage.get(`sellers_${buyer.id}`) || [];
+      let totalBags = 0;
+      let totalKg = 0;
+      
+      for (const seller of sellersData) {
+        const weighKey = `weighing_${buyer.id}_${seller.id}`;
+        const weighData = await storage.get(weighKey);
+        
+        if (weighData && weighData.confirmed) {
+          const tables = weighData.tables || [];
+          
+          // Calculate total kg and bags from all tables for this seller
+          let sellerKg = 0;
+          let sellerBags = 0;
+          
+          for (const table of tables) {
+            const tableWeight = table.rows.reduce((rowSum, row) => {
+              return rowSum + Object.values(row).reduce((cellSum, val) => cellSum + (Number(val) || 0) / digitDivisor, 0);
+            }, 0);
+            
+            sellerKg += tableWeight;
+            
+            // Count filled cells as bags
+            table.rows.forEach(row => {
+              if (row.a && Number(row.a) > 0) sellerBags++;
+              if (row.b && Number(row.b) > 0) sellerBags++;
+              if (row.c && Number(row.c) > 0) sellerBags++;
+              if (row.d && Number(row.d) > 0) sellerBags++;
+              if (row.e && Number(row.e) > 0) sellerBags++;
+            });
+          }
+          
+          // Add to totals
+          totalKg += sellerKg;
+          totalBags += sellerBags;
+        }
+      }
+      
+      console.log(`📦 BuyerList - ${buyer.name}: ${totalBags} bao, ${Math.round(totalKg * 10) / 10} kg`);
+      
+      return {
+        ...buyer,
+        totals: {
+          weightKg: Math.round(totalKg * 10) / 10,
+          weighCount: totalBags, // This is now total bags
+        },
+      };
+    }));
+    
+    setBuyers(buyersWithTotals);
+    setFilteredBuyers(buyersWithTotals);
+    // Trigger animation for list    
     fadeAnim.setValue(1);
     slideAnim.setValue(0);
   };
 
   useEffect(() => {
-    const unsub = navigation.addListener('focus', load);
-    return unsub;
-  }, [navigation]);
+    loadBuyers();
+  }, []);
+
+  // Reload buyers when screen focuses (after confirming weighing)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadBuyers();
+    }, [])
+  );
 
   useEffect(() => {
+    applyFilters();
+  }, [search, buyers, filterType, selectedYear, fromDate, toDate]);
+
+  const applyFilters = () => {
+    let filtered = buyers;
+
+    // Apply search filter
     if (search.trim()) {
-      const filtered = buyers.filter(b => 
+      filtered = filtered.filter(b => 
         b.name.toLowerCase().includes(search.toLowerCase()) ||
         (b.phone && b.phone.includes(search))
       );
-      setFilteredBuyers(filtered);
-    } else {
-      setFilteredBuyers(buyers);
     }
-  }, [search, buyers]);
+
+    // Apply date filter
+    if (filterType === 'year') {
+      filtered = filtered.filter(b => {
+        const buyerYear = new Date(b.createdAt).getFullYear();
+        return buyerYear === selectedYear;
+      });
+    } else if (filterType === 'custom') {
+      const from = new Date(fromDate);
+      from.setHours(0, 0, 0, 0);
+      const to = new Date(toDate);
+      to.setHours(23, 59, 59, 999);
+      
+      filtered = filtered.filter(b => {
+        const buyerDate = new Date(b.createdAt);
+        return buyerDate >= from && buyerDate <= to;
+      });
+    }
+
+    setFilteredBuyers(filtered);
+  };
+
+  const handleApplyFilter = () => {
+    applyFilters();
+    setFilterModalVisible(false);
+  };
+
+  const handleResetFilter = () => {
+    setFilterType('all');
+    setSelectedYear(new Date().getFullYear());
+    setFromDate(new Date());
+    setToDate(new Date());
+    setFilterModalVisible(false);
+  };
 
   const openModal = (buyer = null) => {
     setEditingBuyer(buyer);
@@ -74,13 +181,13 @@ export default function BuyerList() {
     }
     
     closeModal();
-    load();
+    loadBuyers();
   };
 
   const onDelete = async (id) => {
     Alert.alert('Xoá người mua', 'Bạn có chắc muốn xoá?', [
       { text: 'Huỷ', style: 'cancel' },
-      { text: 'Xoá', style: 'destructive', onPress: async () => { await deleteBuyer(id); load(); } },
+      { text: 'Xoá', style: 'destructive', onPress: async () => { await deleteBuyer(id); loadBuyers(); } },
     ]);
   };
 
@@ -89,43 +196,71 @@ export default function BuyerList() {
       <StatusBar barStyle="light-content" backgroundColor="#10b981" />
       
       {/* Header với gradient */}
-      <View className="bg-emerald-500 pt-12 pb-6 px-5 rounded-b-3xl shadow-lg">
+      <View className="bg-emerald-500 pt-6 pb-6 px-5 rounded-b-3xl shadow-lg">
         <Text className="text-3xl font-bold text-white mb-2">🌾 Cân Lúa</Text>
         <Text className="text-emerald-100 text-sm mb-4">Quản lý mua bán lúa gạo</Text>
         
-        {/* Search bar */}
-        <View className="bg-white rounded-2xl flex-row items-center px-4 py-3 shadow">
-          <Text className="text-xl mr-2">🔍</Text>
-          <TextInput
-            className="flex-1 text-base"
-            placeholder="Tìm theo tên hoặc SĐT..."
-            placeholderTextColor="#9ca3af"
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search ? (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <Text className="text-gray-400 text-lg">✕</Text>
-            </TouchableOpacity>
-          ) : null}
+        {/* Search bar with filter */}
+        <View className="flex-row" style={{ gap: 8 }}>
+          <View className="flex-1 bg-white rounded-2xl flex-row items-center px-4 py-3 shadow">
+            <Text className="text-xl mr-2">🔍</Text>
+            <TextInput
+              className="flex-1 text-base"
+              placeholder="Tìm theo tên hoặc SĐT..."
+              placeholderTextColor="#9ca3af"
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search ? (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <Text className="text-gray-400 text-lg">✕</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          
+          {/* Filter Button */}
+          <TouchableOpacity
+            onPress={() => setFilterModalVisible(true)}
+            className={`bg-white rounded-2xl px-4 py-3 shadow items-center justify-center ${filterType !== 'all' ? 'border-2 border-blue-500' : ''}`}
+          >
+            <Text className="text-xl">🔽</Text>
+          </TouchableOpacity>
         </View>
       </View>
+
+      {/* Filter Indicator */}
+      {filterType !== 'all' && (
+        <View className="mx-5 mt-3 bg-blue-100 rounded-xl p-3 flex-row items-center justify-between">
+          <Text className="text-blue-700 font-semibold">
+            {filterType === 'year' 
+              ? `📅 Lọc theo năm: ${selectedYear}`
+              : `🗓️ Từ ${fromDate.toLocaleDateString('vi-VN')} đến ${toDate.toLocaleDateString('vi-VN')}`
+            }
+          </Text>
+          <TouchableOpacity onPress={handleResetFilter}>
+            <Text className="text-blue-700 font-bold text-lg">✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{buyers.length}</Text>
-          <Text style={styles.statLabel}>Tổng số ghe</Text>
+          <Text style={styles.statNumber}>{filteredBuyers.length}</Text>
+          <Text style={styles.statLabel}>{filterType !== 'all' ? 'Kết quả' : 'Tổng số ghe'}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, {color: '#2563eb'}]}>{buyers.reduce((sum, b) => sum + (b.totals?.weighCount || 0), 0)}</Text>
-          <Text style={styles.statLabel}>Tổng lần cân</Text>
+          <Text style={[styles.statNumber, {color: '#2563eb'}]}>{filteredBuyers.reduce((sum, b) => sum + (b.totals?.weighCount || 0), 0)}</Text>
+          <Text style={styles.statLabel}>Tổng bao</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, {color: '#d97706'}]}>{buyers.reduce((sum, b) => sum + (b.totals?.weightKg || 0), 0)}</Text>
+          <Text style={[styles.statNumber, {color: '#d97706'}]}>{filteredBuyers.reduce((sum, b) => sum + (b.totals?.weightKg || 0), 0).toFixed(1)}</Text>
           <Text style={styles.statLabel}>Tổng kg</Text>
         </View>
       </View>
+
+      {/* Banner Ad */}
+      <BannerAd />
 
       {/* List */}
       <FlatList
@@ -140,11 +275,15 @@ export default function BuyerList() {
             >
               <View className="flex-row justify-between items-start mb-3">
                 <View className="flex-1">
-                  <View className="flex-row items-center mb-1">
-                    <Text className="text-xl mr-2">🚜</Text>
-                    <Text className="text-lg font-bold text-gray-800 flex-1">{item.name}</Text>
+                  <View className="flex-row items-center">
+                    <Text className="text-xl font-bold text-gray-800">{item.name}</Text>
+                    {item.sellers?.some(s => s.confirmed) && (
+                      <View className="ml-2 bg-green-100 px-2 py-1 rounded-full">
+                        <Text className="text-green-700 text-xs font-bold">✅ Đã kết sổ</Text>
+                      </View>
+                    )}
                   </View>
-                  <Text className="text-gray-400 text-xs">📅 {new Date(item.createdAt).toLocaleDateString('vi-VN')}</Text>
+                  <Text className="text-gray-500 text-sm">📅 {new Date(item.createdAt).toLocaleDateString('vi-VN')}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => openModal(item)}
@@ -156,12 +295,12 @@ export default function BuyerList() {
 
               <View style={styles.statsRow}>
                 <View className="flex-1 bg-emerald-50 rounded-xl p-3">
-                  <Text className="text-emerald-700 font-bold text-base">{item.totals?.weightKg || 0} kg</Text>
-                  <Text className="text-emerald-600 text-xs">Khối lượng</Text>
+                  <Text className="text-emerald-700 font-bold text-base">{(item.totals?.weightKg || 0).toFixed(1)} kg</Text>
+                  <Text className="text-emerald-600 text-xs">Tổng kg</Text>
                 </View>
                 <View className="flex-1 bg-blue-50 rounded-xl p-3">
                   <Text className="text-blue-700 font-bold text-base">{item.totals?.weighCount || 0}</Text>
-                  <Text className="text-blue-600 text-xs">Lần cân</Text>
+                  <Text className="text-blue-600 text-xs">Tổng bao</Text>
                 </View>
               </View>
 
@@ -258,6 +397,106 @@ export default function BuyerList() {
               </TouchableOpacity>
             </View>
           </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={filterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View className="bg-white rounded-3xl p-6 max-w-md w-full">
+            <Text className="text-2xl font-bold text-gray-800 mb-4">🔽 Lọc danh sách</Text>
+
+            {/* Filter Type Selection */}
+            <View className="mb-4">
+              <TouchableOpacity
+                onPress={() => setFilterType('all')}
+                className={`p-4 rounded-xl mb-3 ${filterType === 'all' ? 'bg-emerald-500' : 'bg-gray-100'}`}
+              >
+                <Text className={`font-semibold ${filterType === 'all' ? 'text-white' : 'text-gray-700'}`}>
+                  📋 Tất cả
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setFilterType('year')}
+                className={`p-4 rounded-xl mb-3 ${filterType === 'year' ? 'bg-emerald-500' : 'bg-gray-100'}`}
+              >
+                <Text className={`font-semibold ${filterType === 'year' ? 'text-white' : 'text-gray-700'}`}>
+                  📅 Lọc theo năm
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setFilterType('custom')}
+                className={`p-4 rounded-xl ${filterType === 'custom' ? 'bg-emerald-500' : 'bg-gray-100'}`}
+              >
+                <Text className={`font-semibold ${filterType === 'custom' ? 'text-white' : 'text-gray-700'}`}>
+                  🗓️ Tùy chọn (từ ngày - đến ngày)
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Year Selector */}
+            {filterType === 'year' && (
+              <View className="mb-4 bg-blue-50 rounded-xl p-4">
+                <Text className="text-gray-700 font-semibold mb-3">Chọn năm:</Text>
+                <View className="flex-row items-center justify-center">
+                  <TouchableOpacity
+                    onPress={() => setSelectedYear(selectedYear - 1)}
+                    className="bg-blue-500 px-4 py-2 rounded-xl"
+                  >
+                    <Text className="text-white font-bold">←</Text>
+                  </TouchableOpacity>
+                  <Text className="text-2xl font-bold mx-6">{selectedYear}</Text>
+                  <TouchableOpacity
+                    onPress={() => setSelectedYear(selectedYear + 1)}
+                    disabled={selectedYear >= new Date().getFullYear()}
+                    className={`px-4 py-2 rounded-xl ${selectedYear >= new Date().getFullYear() ? 'bg-gray-300' : 'bg-blue-500'}`}
+                  >
+                    <Text className={`font-bold ${selectedYear >= new Date().getFullYear() ? 'text-gray-500' : 'text-white'}`}>→</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Custom Date Range */}
+            {filterType === 'custom' && (
+              <ScrollView className="mb-4 bg-purple-50 rounded-xl p-4" style={{ maxHeight: 300 }}>
+                <Text className="text-gray-700 font-semibold mb-2">Từ ngày:</Text>
+                <SimpleDatePicker
+                  value={fromDate}
+                  onChange={setFromDate}
+                />
+                
+                <Text className="text-gray-700 font-semibold mb-2 mt-4">Đến ngày:</Text>
+                <SimpleDatePicker
+                  value={toDate}
+                  onChange={setToDate}
+                />
+              </ScrollView>
+            )}
+
+            {/* Buttons */}
+            <View className="flex-row" style={{ gap: 12 }}>
+              <TouchableOpacity
+                onPress={handleResetFilter}
+                className="flex-1 bg-gray-100 rounded-xl py-4"
+              >
+                <Text className="text-gray-700 text-center font-bold">Đặt lại</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleApplyFilter}
+                className="flex-1 bg-emerald-500 rounded-xl py-4"
+              >
+                <Text className="text-white text-center font-bold">Áp dụng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </View>

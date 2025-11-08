@@ -13,6 +13,8 @@ export default function BuyerDetail() {
   const { buyerId } = route.params || {};
   const [buyer, setBuyer] = useState(null);
   const [sellers, setSellers] = useState([]);
+  const [totalBags, setTotalBags] = useState(0);
+  const [totalKg, setTotalKg] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -23,7 +25,60 @@ export default function BuyerDetail() {
     const b = await getBuyer(buyerId);
     setBuyer(b);
     const sellersData = await storage.get(`sellers_${buyerId}`) || [];
-    setSellers(sellersData);
+    
+    // Get settings for correct divisor
+    const settings = await storage.get('app_settings');
+    const digitDivisor = (settings && settings.fourDigitInput) ? 100 : 10;
+    
+    let totalBagsCount = 0;
+    let totalKgCount = 0;
+    
+    // Load confirmed status and calculate totals for each seller
+    const sellersWithStatus = await Promise.all(sellersData.map(async (seller) => {
+      const weighKey = `weighing_${buyerId}_${seller.id}`;
+      const weighData = await storage.get(weighKey);
+      
+      if (weighData && weighData.confirmed) {
+        const tables = weighData.tables || [];
+        
+        // Calculate total kg and bags from all tables for this seller
+        let sellerKg = 0;
+        let sellerBags = 0;
+        
+        for (const table of tables) {
+          const tableWeight = table.rows.reduce((rowSum, row) => {
+            return rowSum + Object.values(row).reduce((cellSum, val) => cellSum + (Number(val) || 0) / digitDivisor, 0);
+          }, 0);
+          
+          sellerKg += tableWeight;
+          
+          // Count filled cells as bags
+          table.rows.forEach(row => {
+            if (row.a && Number(row.a) > 0) sellerBags++;
+            if (row.b && Number(row.b) > 0) sellerBags++;
+            if (row.c && Number(row.c) > 0) sellerBags++;
+            if (row.d && Number(row.d) > 0) sellerBags++;
+            if (row.e && Number(row.e) > 0) sellerBags++;
+          });
+        }
+        
+        // Add to totals
+        totalKgCount += sellerKg;
+        totalBagsCount += sellerBags;
+      }
+      
+      return {
+        ...seller,
+        confirmed: weighData?.confirmed || false,
+      };
+    }));
+    
+    console.log('📦 BuyerDetail - Total bags:', totalBagsCount);
+    console.log('📦 BuyerDetail - Total kg:', Math.round(totalKgCount * 10) / 10);
+    
+    setSellers(sellersWithStatus);
+    setTotalBags(totalBagsCount);
+    setTotalKg(Math.round(totalKgCount * 10) / 10);
   };
 
   useEffect(() => {
@@ -53,6 +108,7 @@ export default function BuyerDetail() {
 
   const onAddSeller = async () => {
     if (!name.trim()) return Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên người bán');
+    if (!price.trim()) return Alert.alert('Thiếu thông tin', 'Vui lòng nhập đơn giá');
     const seller = {
       id: genId(),
       name: name.trim(),
@@ -103,11 +159,11 @@ export default function BuyerDetail() {
           <Text className="text-gray-500 text-xs mt-1">Người bán</Text>
         </View>
         <View style={styles.statCard}>
-          <Text className="text-2xl font-bold text-blue-600">{buyer?.totals?.weighCount || 0}</Text>
-          <Text className="text-gray-500 text-xs mt-1">Lần cân</Text>
+          <Text className="text-2xl font-bold text-blue-600">{totalBags}</Text>
+          <Text className="text-gray-500 text-xs mt-1">Tổng bao</Text>
         </View>
         <View style={styles.statCard}>
-          <Text className="text-2xl font-bold text-amber-600">{buyer?.totals?.weightKg || 0}</Text>
+          <Text className="text-2xl font-bold text-amber-600">{totalKg}</Text>
           <Text className="text-gray-500 text-xs mt-1">Tổng kg</Text>
         </View>
       </View>
@@ -128,6 +184,11 @@ export default function BuyerDetail() {
                 <View className="flex-row items-center mb-1">
                   <Text className="text-xl mr-2">👤</Text>
                   <Text className="text-lg font-bold text-gray-800 flex-1">{item.name}</Text>
+                  {item.confirmed && (
+                    <View className="bg-green-100 px-2 py-1 rounded-full ml-2">
+                      <Text className="text-green-700 text-xs font-bold">✅</Text>
+                    </View>
+                  )}
                 </View>
                 <Text className="text-gray-400 text-xs">📅 {new Date(item.createdAt).toLocaleDateString('vi-VN')}</Text>
               </View>
@@ -199,8 +260,8 @@ export default function BuyerDetail() {
             <View className="mb-6">
               <Text className="text-gray-700 font-semibold mb-2">Đơn giá (đ/kg)</Text>
               <MoneyInput
-                className="bg-gray-50 rounded-xl px-4 py-3 text-base border border-gray-200"
-                placeholder="Nhập đơn giá (tuỳ chọn)..."
+                className="bg-gray-50 rounded-xl px-4 py-3 txt-base border border-gray-200"
+                placeholder="Nhập đơn giá ..."
                 value={price}
                 onChangeText={setPrice}
               />
