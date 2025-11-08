@@ -7,6 +7,7 @@ import { storage } from '../services/storage';
 import { getTransactionStats } from '../services/transactions';
 import BannerAd from '../components/BannerAd';
 import { useInterstitialAd } from '../components/InterstitialAd';
+import { formatMoney, formatWeight } from '../utils/numberUtils';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -195,7 +196,7 @@ export default function StatisticsScreen() {
         <View style={styles.summaryContainer}>
           <View style={styles.summaryCard}>
             <Text className="text-4xl mb-2">🌾</Text>
-            <Text className="text-3xl font-bold text-emerald-600">{totalKg.toFixed(1)}</Text>
+            <Text className="text-3xl font-bold text-emerald-600">{formatWeight(totalKg)}</Text>
             <Text className="text-gray-600 text-sm mt-1">Tổng kg</Text>
           </View>
           
@@ -209,13 +210,13 @@ export default function StatisticsScreen() {
         <View style={styles.summaryContainer}>
           <View style={styles.summaryCard}>
             <Text className="text-4xl mb-2">💰</Text>
-            <Text className="text-2xl font-bold text-green-600">{transactionStats.income.toLocaleString()}</Text>
+            <Text className="text-2xl font-bold text-green-600">{formatMoney(transactionStats.income)}</Text>
             <Text className="text-gray-600 text-sm mt-1">Thu (đ)</Text>
           </View>
           
           <View style={styles.summaryCard}>
             <Text className="text-4xl mb-2">💸</Text>
-            <Text className="text-2xl font-bold text-red-600">{transactionStats.expense.toLocaleString()}</Text>
+            <Text className="text-2xl font-bold text-red-600">{formatMoney(transactionStats.expense)}</Text>
             <Text className="text-gray-600 text-sm mt-1">Chi (đ)</Text>
           </View>
         </View>
@@ -223,7 +224,7 @@ export default function StatisticsScreen() {
         <View className="mx-5 mb-4 bg-white rounded-2xl p-5" style={styles.shadow}>
           <Text className="text-4xl mb-2 text-center">📈</Text>
           <Text className="text-3xl font-bold text-center" style={{ color: transactionStats.profit >= 0 ? '#10b981' : '#ef4444' }}>
-            {transactionStats.profit.toLocaleString()} đ
+            {formatMoney(transactionStats.profit)} đ
           </Text>
           <Text className="text-gray-600 text-sm mt-1 text-center">Lợi nhuận</Text>
         </View>
@@ -276,10 +277,10 @@ export default function StatisticsScreen() {
                     <Text className="text-2xl mr-3">{index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '👤'}</Text>
                     <View className="flex-1">
                       <Text className="font-bold text-gray-800">{buyer.name}</Text>
-                      <Text className="text-gray-500 text-xs">{buyer.totals?.bags || 0} bao • {(buyer.totals?.weightKg || 0).toFixed(1)} kg</Text>
+                      <Text className="text-gray-500 text-xs">{buyer.totals?.bags || 0} bao • {formatWeight(buyer.totals?.weightKg || 0)} kg</Text>
                     </View>
                   </View>
-                  <Text className="font-bold text-emerald-600">{(buyer.totals?.weightKg || 0).toFixed(1)} kg</Text>
+                  <Text className="font-bold text-emerald-600">{formatWeight(buyer.totals?.weightKg || 0)} kg</Text>
                 </View>
               ))
           ) : (

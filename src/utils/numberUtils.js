@@ -1,5 +1,15 @@
-// Format number with thousand separators
+// Format number with thousand separators (for kg with decimal)
 export function formatNumber(num) {
+  return num.toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+// Format money (VND) with thousand separators
+export function formatMoney(num) {
+  return Math.round(num).toLocaleString('vi-VN');
+}
+
+// Format weight (kg) with thousand separators and 1 decimal
+export function formatWeight(num) {
   return num.toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 

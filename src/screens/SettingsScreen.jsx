@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Switch, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Switch, StyleSheet, Linking, Share } from 'react-native';
 import { storage } from '../services/storage';
 import BannerAd from '../components/BannerAd';
 import { useInterstitialAd } from '../components/InterstitialAd';
+import { useNavigation } from '@react-navigation/native';
 
 export default function SettingsScreen() {
   useInterstitialAd(); // Show interstitial ad
+  const navigation = useNavigation();
   
   const [notifications, setNotifications] = useState(true);
   const [autoBackup, setAutoBackup] = useState(false);
   const [fourDigitInput, setFourDigitInput] = useState(false);
+  const [dataStats, setDataStats] = useState({ buyers: 0, transactions: 0, weighings: 0 });
 
   useEffect(() => {
     loadSettings();
@@ -22,6 +25,32 @@ export default function SettingsScreen() {
       setAutoBackup(settings.autoBackup ?? false);
       setFourDigitInput(settings.fourDigitInput ?? false);
     }
+    
+    // Load data statistics
+    await loadDataStats();
+  };
+
+  const loadDataStats = async () => {
+    const buyers = await storage.get('buyers') || [];
+    const transactions = await storage.get('transactions') || [];
+    
+    // Count weighings
+    let weighingCount = 0;
+    for (const buyer of buyers) {
+      const sellers = await storage.get(`sellers_${buyer.id}`) || [];
+      for (const seller of sellers) {
+        const weighing = await storage.get(`weighing_${buyer.id}_${seller.id}`);
+        if (weighing && weighing.confirmed) {
+          weighingCount++;
+        }
+      }
+    }
+    
+    setDataStats({
+      buyers: buyers.length,
+      transactions: transactions.length,
+      weighings: weighingCount,
+    });
   };
 
   const saveSettings = async (key, value) => {
@@ -51,20 +80,125 @@ export default function SettingsScreen() {
   };
 
   const handleExportData = async () => {
-    const buyers = await storage.get('buyers');
-    const transactions = await storage.get('transactions');
-    
-    const data = {
-      buyers: buyers || [],
-      transactions: transactions || [],
-      exportedAt: new Date().toISOString(),
-    };
+    try {
+      const buyers = await storage.get('buyers') || [];
+      const transactions = await storage.get('transactions') || [];
+      const settings = await storage.get('app_settings') || {};
+      
+      // Collect all weighing data
+      const weighings = [];
+      for (const buyer of buyers) {
+        const sellers = await storage.get(`sellers_${buyer.id}`) || [];
+        for (const seller of sellers) {
+          const weighing = await storage.get(`weighing_${buyer.id}_${seller.id}`);
+          if (weighing) {
+            weighings.push({
+              buyerId: buyer.id,
+              sellerId: seller.id,
+              data: weighing,
+            });
+          }
+        }
+      }
+      
+      const exportData = {
+        version: '1.0.0',
+        exportedAt: new Date().toISOString(),
+        buyers,
+        transactions,
+        weighings,
+        settings,
+      };
 
+      const dataString = JSON.stringify(exportData, null, 2);
+      
+      // Share data
+      await Share.share({
+        message: dataString,
+        title: 'Dữ liệu Cân Lúa',
+      });
+      
+      Alert.alert(
+        'Xuất dữ liệu thành công',
+        `Đã xuất:\n• ${buyers.length} người mua\n• ${transactions.length} giao dịch\n• ${weighings.length} lần cân\n\nDữ liệu đã được chia sẻ!`
+      );
+    } catch (error) {
+      Alert.alert('Lỗi', 'Không thể xuất dữ liệu: ' + error.message);
+    }
+  };
+
+  const handleImportData = () => {
     Alert.alert(
-      'Xuất dữ liệu',
-      `Đã chuẩn bị dữ liệu:\n- ${data.buyers.length} người mua\n- ${data.transactions.length} giao dịch\n\nDữ liệu: ${JSON.stringify(data).substring(0, 100)}...`,
+      'Nhập dữ liệu',
+      'Tính năng này sẽ cho phép bạn khôi phục dữ liệu từ file sao lưu. Hiện tại bạn có thể dán dữ liệu JSON đã xuất vào ứng dụng.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Hướng dẫn',
+          onPress: () => Alert.alert(
+            'Hướng dẫn nhập dữ liệu',
+            '1. Xuất dữ liệu từ ứng dụng\n2. Lưu file JSON\n3. Khi cần khôi phục, mở file và copy nội dung\n4. Dán vào ứng dụng để khôi phục\n\nLưu ý: Tính năng này đang được phát triển.'
+          ),
+        },
+      ]
+    );
+  };
+
+  const handleMonthlyReport = () => {
+    navigation.navigate('Statistics');
+    Alert.alert('Báo cáo tháng', 'Đã chuyển đến màn hình Thống kê để xem báo cáo chi tiết.');
+  };
+
+  const handleYearlyReport = () => {
+    navigation.navigate('Statistics');
+    Alert.alert('Báo cáo năm', 'Đã chuyển đến màn hình Thống kê. Bạn có thể chọn năm để xem báo cáo.');
+  };
+
+  const handleReminders = () => {
+    Alert.alert(
+      'Nhắc nhở',
+      'Tính năng nhắc nhở sẽ giúp bạn:\n• Nhắc thu tiền\n• Nhắc cân lúa\n• Nhắc kiểm tra tồn kho\n\nTính năng này đang được phát triển.',
       [{ text: 'OK' }]
     );
+  };
+
+  const handleSupport = async () => {
+    const email = 'support@canlua.app';
+    const subject = 'Hỗ trợ ứng dụng Cân Lúa';
+    const body = `Xin chào,\n\nTôi cần hỗ trợ về:\n\n[Mô tả vấn đề của bạn]\n\n---\nPhiên bản: 1.0.0\nNgười mua: ${dataStats.buyers}\nGiao dịch: ${dataStats.transactions}`;
+    
+    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert('Lỗi', 'Không thể mở ứng dụng email. Vui lòng liên hệ: ' + email);
+    }
+  };
+
+  const handleNotificationToggle = (val) => {
+    setNotifications(val);
+    saveSettings('notifications', val);
+    
+    if (val) {
+      Alert.alert('Thông báo đã bật', 'Bạn sẽ nhận được thông báo từ ứng dụng.');
+    } else {
+      Alert.alert('Thông báo đã tắt', 'Bạn sẽ không nhận thông báo nữa.');
+    }
+  };
+
+  const handleAutoBackupToggle = async (val) => {
+    setAutoBackup(val);
+    saveSettings('autoBackup', val);
+    
+    if (val) {
+      // Perform immediate backup
+      await handleExportData();
+      Alert.alert('Tự động sao lưu đã bật', 'Dữ liệu sẽ được sao lưu định kỳ. Bạn vừa thực hiện sao lưu đầu tiên.');
+    } else {
+      Alert.alert('Tự động sao lưu đã tắt', 'Dữ liệu sẽ không được sao lưu tự động nữa.');
+    }
   };
 
   return (
@@ -90,8 +224,8 @@ export default function SettingsScreen() {
             <Text className="text-gray-800 font-bold">1.0.0</Text>
           </View>
           <View className="py-2">
-            <Text className="text-gray-600">Mô tả</Text>
-            <Text className="text-gray-800">Quản lý mua bán lúa gạo</Text>
+            <Text className="text-gray-600">Dữ liệu hiện tại</Text>
+            <Text className="text-gray-800">{dataStats.buyers} người mua • {dataStats.transactions} giao dịch • {dataStats.weighings} lần cân</Text>
           </View>
         </View>
 
@@ -106,7 +240,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={notifications}
-              onValueChange={(val) => { setNotifications(val); saveSettings('notifications', val); }}
+              onValueChange={handleNotificationToggle}
               trackColor={{ false: '#d1d5db', true: '#10b981' }}
               thumbColor={notifications ? '#fff' : '#f3f4f6'}
             />
@@ -119,7 +253,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={autoBackup}
-              onValueChange={(val) => { setAutoBackup(val); saveSettings('autoBackup', val); }}
+              onValueChange={handleAutoBackupToggle}
               trackColor={{ false: '#d1d5db', true: '#10b981' }}
               thumbColor={autoBackup ? '#fff' : '#f3f4f6'}
             />
@@ -132,7 +266,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={fourDigitInput}
-              onValueChange={(val) => { setFourDigitInput(val); saveSettings('fourDigitInput', val); Alert.alert('Thông báo', 'Vui lòng khởi động lại ứng dụng để áp dụng thay đổi'); }}
+              onValueChange={(val) => { setFourDigitInput(val); saveSettings('fourDigitInput', val);  }}
               trackColor={{ false: '#d1d5db', true: '#10b981' }}
               thumbColor={fourDigitInput ? '#fff' : '#f3f4f6'}
             />
@@ -157,6 +291,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            onPress={handleImportData}
             className="bg-gray-50 rounded-xl p-4 mb-3"
           >
             <View className="flex-row items-center">
@@ -186,7 +321,7 @@ export default function SettingsScreen() {
         <View className="mx-5 mt-4 bg-white rounded-2xl p-5" style={styles.shadow}>
           <Text className="text-lg font-bold text-gray-800 mb-3">⚡ Thao tác nhanh</Text>
           
-          <TouchableOpacity className="bg-emerald-50 rounded-xl p-4 mb-3">
+          <TouchableOpacity onPress={handleMonthlyReport} className="bg-emerald-50 rounded-xl p-4 mb-3">
             <View className="flex-row items-center">
               <Text className="text-3xl mr-3">📊</Text>
               <View className="flex-1">
@@ -196,7 +331,7 @@ export default function SettingsScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity className="bg-purple-50 rounded-xl p-4 mb-3">
+          <TouchableOpacity onPress={handleYearlyReport} className="bg-purple-50 rounded-xl p-4 mb-3">
             <View className="flex-row items-center">
               <Text className="text-3xl mr-3">📈</Text>
               <View className="flex-1">
@@ -206,7 +341,7 @@ export default function SettingsScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity className="bg-orange-50 rounded-xl p-4">
+          <TouchableOpacity onPress={handleReminders} className="bg-orange-50 rounded-xl p-4">
             <View className="flex-row items-center">
               <Text className="text-3xl mr-3">🔔</Text>
               <View className="flex-1">
@@ -237,7 +372,7 @@ export default function SettingsScreen() {
           <Text className="text-white mb-4">
             Nếu bạn gặp vấn đề hoặc có góp ý, vui lòng liên hệ với chúng tôi.
           </Text>
-          <TouchableOpacity className="bg-white rounded-xl py-3">
+          <TouchableOpacity onPress={handleSupport} className="bg-white rounded-xl py-3">
             <Text className="text-emerald-600 font-bold text-center">📧 Liên hệ hỗ trợ</Text>
           </TouchableOpacity>
         </View>

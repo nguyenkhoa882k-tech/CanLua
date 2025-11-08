@@ -4,6 +4,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { getBuyer } from '../services/buyers';
 import { storage } from '../services/storage';
 import { MoneyInput } from '../components/MoneyInput';
+import { formatMoney, formatWeight } from '../utils/numberUtils';
 
 const genId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -163,7 +164,7 @@ export default function BuyerDetail() {
           <Text className="text-gray-500 text-xs mt-1">Tổng bao</Text>
         </View>
         <View style={styles.statCard}>
-          <Text className="text-2xl font-bold text-amber-600">{totalKg}</Text>
+          <Text className="text-2xl font-bold text-amber-600">{formatWeight(totalKg)}</Text>
           <Text className="text-gray-500 text-xs mt-1">Tổng kg</Text>
         </View>
       </View>
@@ -202,7 +203,7 @@ export default function BuyerDetail() {
 
             {item.unitPrice != null && (
               <View className="bg-emerald-50 rounded-xl p-3 mb-3">
-                <Text className="text-emerald-700 font-bold text-base">{item.unitPrice.toLocaleString()} đ/kg</Text>
+                <Text className="text-emerald-700 font-bold text-base">{formatMoney(item.unitPrice)} đ/kg</Text>
                 <Text className="text-emerald-600 text-xs">Đơn giá</Text>
               </View>
             )}

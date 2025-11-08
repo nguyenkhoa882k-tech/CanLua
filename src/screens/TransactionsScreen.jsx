@@ -6,6 +6,7 @@ import { listTransactions, createTransaction, updateTransaction, deleteTransacti
 import { MoneyInput } from '../components/MoneyInput';
 import BannerAd from '../components/BannerAd';
 import { useInterstitialAd } from '../components/InterstitialAd';
+import { formatMoney } from '../utils/numberUtils';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -118,7 +119,7 @@ export default function TransactionsScreen() {
   const pieColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
   const incomePieData = Object.entries(incomeByCategory).map(([name, amount], i) => ({
-    name: `${name}: ${amount.toLocaleString('vi-VN')}đ`,
+    name: `${name}: ${formatMoney(amount)}đ`,
     amount,
     color: pieColors[i % pieColors.length],
     legendFontColor: '#7F7F7F',
@@ -126,7 +127,7 @@ export default function TransactionsScreen() {
   }));
 
   const expensePieData = Object.entries(expenseByCategory).map(([name, amount], i) => ({
-    name: `${name}: ${amount.toLocaleString('vi-VN')}đ`,
+    name: `${name}: ${formatMoney(amount)}đ`,
     amount,
     color: pieColors[i % pieColors.length],
     legendFontColor: '#7F7F7F',
@@ -148,20 +149,20 @@ export default function TransactionsScreen() {
         <View style={styles.summaryContainer}>
           <View style={[styles.summaryCard, { backgroundColor: '#d1fae5' }]}>
             <Text className="text-2xl mb-1">📈</Text>
-            <Text className="text-xl font-bold text-green-700">{totalIncome.toLocaleString()}</Text>
+            <Text className="text-xl font-bold text-green-700">{formatMoney(totalIncome)}</Text>
             <Text className="text-green-600 text-xs mt-1">Thu</Text>
           </View>
           
           <View style={[styles.summaryCard, { backgroundColor: '#fee2e2' }]}>
             <Text className="text-2xl mb-1">📉</Text>
-            <Text className="text-xl font-bold text-red-700">{totalExpense.toLocaleString()}</Text>
+            <Text className="text-xl font-bold text-red-700">{formatMoney(totalExpense)}</Text>
             <Text className="text-red-600 text-xs mt-1">Chi</Text>
           </View>
           
           <View style={[styles.summaryCard, { backgroundColor: balance >= 0 ? '#dbeafe' : '#fef3c7' }]}>
             <Text className="text-2xl mb-1">💵</Text>
             <Text className={`text-xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-yellow-700'}`}>
-              {balance.toLocaleString()}
+              {formatMoney(balance)}
             </Text>
             <Text className={`text-xs mt-1 ${balance >= 0 ? 'text-blue-600' : 'text-yellow-600'}`}>
               {balance >= 0 ? 'Lãi' : 'Lỗ'}
@@ -238,7 +239,7 @@ export default function TransactionsScreen() {
                   {transaction.note ? <Text className="text-gray-600 text-sm mt-1">📝 {transaction.note}</Text> : null}
                 </View>
                 <Text className={`text-xl font-bold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                  {transaction.type === 'income' ? '+' : '-'}{Number(transaction.amount).toLocaleString()}
+                  {transaction.type === 'income' ? '+' : '-'}{formatMoney(Number(transaction.amount))}
                 </Text>
               </View>
               <View className="flex-row" style={{ gap: 8 }}>

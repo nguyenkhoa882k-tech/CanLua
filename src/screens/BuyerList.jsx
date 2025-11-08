@@ -5,6 +5,7 @@ import { storage } from '../services/storage';
 import BannerAd from '../components/BannerAd';
 import SimpleDatePicker from '../components/SimpleDatePicker';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { formatWeight } from '../utils/numberUtils';
 
 export default function BuyerList() {
   const [buyers, setBuyers] = useState([]);
@@ -254,7 +255,7 @@ export default function BuyerList() {
           <Text style={styles.statLabel}>Tổng bao</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, {color: '#d97706'}]}>{filteredBuyers.reduce((sum, b) => sum + (b.totals?.weightKg || 0), 0).toFixed(1)}</Text>
+          <Text style={[styles.statNumber, {color: '#d97706'}]}>{formatWeight(filteredBuyers.reduce((sum, b) => sum + (b.totals?.weightKg || 0), 0))}</Text>
           <Text style={styles.statLabel}>Tổng kg</Text>
         </View>
       </View>
@@ -295,7 +296,7 @@ export default function BuyerList() {
 
               <View style={styles.statsRow}>
                 <View className="flex-1 bg-emerald-50 rounded-xl p-3">
-                  <Text className="text-emerald-700 font-bold text-base">{(item.totals?.weightKg || 0).toFixed(1)} kg</Text>
+                  <Text className="text-emerald-700 font-bold text-base">{formatWeight(item.totals?.weightKg || 0)} kg</Text>
                   <Text className="text-emerald-600 text-xs">Tổng kg</Text>
                 </View>
                 <View className="flex-1 bg-blue-50 rounded-xl p-3">
