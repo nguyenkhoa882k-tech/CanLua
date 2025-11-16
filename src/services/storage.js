@@ -25,6 +25,14 @@ export const storage = {
       return false;
     }
   },
+  async clear() {
+    try {
+      await AsyncStorage.clear();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
 };
 
 export const KEYS = {
