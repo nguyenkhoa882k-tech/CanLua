@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import SplashScreen from './src/screens/SplashScreen.jsx';
+import WelcomeScreen from './src/screens/WelcomeScreen.jsx';
 import BuyerList from './src/screens/BuyerList.jsx';
 import BuyerDetail from './src/screens/BuyerDetail.jsx';
 import SellerDetail from './src/screens/SellerDetail.jsx';
@@ -85,8 +85,11 @@ function MainTabs() {
 function AppNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Splash" component={SplashScreen} />
+      <Stack.Navigator
+        initialRouteName="Welcome"
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="BuyerDetail" component={BuyerDetail} />
         <Stack.Screen name="SellerDetail" component={SellerDetail} />
