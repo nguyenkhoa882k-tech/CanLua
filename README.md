@@ -73,6 +73,20 @@ When you want to forcefully reload, for example to reset the state of your app, 
 - **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
 - **iOS**: Press <kbd>R</kbd> in iOS Simulator.
 
+## Automatic Backups
+
+The **Tự động sao lưu** toggle in `Settings` → `🔔 Tùy chọn` keeps your encrypted `.clb` backups fresh without manual work.
+
+1. Enable the toggle to run an immediate encrypted export (you can download/share it right away). The latest timestamp appears under the toggle.
+2. While the toggle stays on, the app checks every 6 hours (and whenever it returns to the foreground) to ensure at least one backup per day in `canlua-backups/`.
+3. Disable the toggle to stop the scheduler instantly. Manual exports are still available via **Xuất dữ liệu**.
+
+### Quick Test Flow
+
+- Turn the toggle on, confirm the first backup alert, and optionally send the file to another device.
+- Leave the app, come back later, and verify the "Lần gần nhất" label updates after the next automatic run.
+- Turn the toggle off once you're done testing to prevent extra files.
+
 ## Congratulations! :tada:
 
 You've successfully run and modified your React Native App. :partying_face:

@@ -12,6 +12,13 @@ import {
   Platform,
 } from 'react-native';
 import { storage } from '../services/storage';
+import {
+  startAutoBackupScheduler,
+  stopAutoBackupScheduler,
+  runAutoBackupIfDue,
+  getLastAutoBackupTime,
+  LAST_AUTO_BACKUP_KEY,
+} from '../services/autoBackup';
 import BannerAd from '../components/BannerAd';
 import { useInterstitialAd } from '../components/InterstitialAd';
 import { useNavigation } from '@react-navigation/native';
@@ -29,14 +36,30 @@ export default function SettingsScreen() {
   useInterstitialAd(); // Show interstitial ad
   const navigation = useNavigation();
 
-  const [notifications, setNotifications] = useState(true);
   const [autoBackup, setAutoBackup] = useState(false);
   const [fourDigitInput, setFourDigitInput] = useState(false);
+  const [lastAutoBackupAt, setLastAutoBackupAt] = useState(null);
   const [dataStats, setDataStats] = useState({
     buyers: 0,
     transactions: 0,
     weighings: 0,
   });
+
+  const refreshLastBackupTime = useCallback(async () => {
+    const lastBackup = await getLastAutoBackupTime();
+    setLastAutoBackupAt(lastBackup);
+  }, []);
+
+  const formatLastBackup = useCallback(value => {
+    if (!value) {
+      return 'Chưa từng sao lưu';
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+    return parsed.toLocaleString();
+  }, []);
 
   const loadDataStats = useCallback(async () => {
     const buyers = (await storage.get('buyers')) || [];
@@ -64,14 +87,14 @@ export default function SettingsScreen() {
   const loadSettings = useCallback(async () => {
     const settings = await storage.get('app_settings');
     if (settings) {
-      setNotifications(settings.notifications ?? true);
       setAutoBackup(settings.autoBackup ?? false);
       setFourDigitInput(settings.fourDigitInput ?? false);
     }
 
     // Load data statistics
     await loadDataStats();
-  }, [loadDataStats]);
+    await refreshLastBackupTime();
+  }, [loadDataStats, refreshLastBackupTime]);
 
   useEffect(() => {
     loadSettings();
@@ -80,7 +103,6 @@ export default function SettingsScreen() {
   const saveSettings = async (key, value) => {
     const settings = (await storage.get('app_settings')) || {};
     settings[key] = value;
-    console.log('value', value);
 
     await storage.set('app_settings', settings);
   };
@@ -134,6 +156,9 @@ export default function SettingsScreen() {
     try {
       const result = await exportEncryptedBackup();
       const summaryMessage = `• ${result.buyers} người mua\n• ${result.transactions} giao dịch\n• ${result.weighings} lần cân\n\nFile mã hoá đã được lưu tại:\n${result.filePath}\n\nThư mục sao lưu: ${BACKUP_DIRECTORY}`;
+
+      await storage.set(LAST_AUTO_BACKUP_KEY, new Date().toISOString());
+      await refreshLastBackupTime();
 
       Alert.alert('Sao lưu thành công', summaryMessage, [
         { text: 'Đóng', style: 'cancel' },
@@ -251,7 +276,7 @@ export default function SettingsScreen() {
   };
 
   const handleSupport = async () => {
-    const email = 'support@canlua.app';
+    const email = 'khoa882k@gmail.com';
     const subject = 'Hỗ trợ ứng dụng Cân Lúa';
     const body = `Xin chào,\n\nTôi cần hỗ trợ về:\n\n[Mô tả vấn đề của bạn]\n\n---\nPhiên bản: 1.0.0\nNgười mua: ${dataStats.buyers}\nGiao dịch: ${dataStats.transactions}`;
 
@@ -270,36 +295,46 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleNotificationToggle = val => {
-    setNotifications(val);
-    saveSettings('notifications', val);
-
-    if (val) {
-      Alert.alert(
-        'Thông báo đã bật',
-        'Bạn sẽ nhận được thông báo từ ứng dụng.',
-      );
-    } else {
-      Alert.alert('Thông báo đã tắt', 'Bạn sẽ không nhận thông báo nữa.');
-    }
-  };
-
   const handleAutoBackupToggle = async val => {
     setAutoBackup(val);
     await saveSettings('autoBackup', val);
 
     if (val) {
       try {
-        await handleExportData();
-        Alert.alert(
-          'Tự động sao lưu đã bật',
-          'Dữ liệu sẽ được sao lưu định kỳ. Bạn vừa thực hiện sao lưu đầu tiên.',
-        );
+        startAutoBackupScheduler();
+        const result = await runAutoBackupIfDue({ force: true });
+        await refreshLastBackupTime();
+
+        if (result) {
+          const summaryMessage = `• ${result.buyers} người mua\n• ${result.transactions} giao dịch\n• ${result.weighings} lần cân\n\nFile mã hoá đã được lưu tại:\n${result.filePath}\n\nThư mục sao lưu: ${BACKUP_DIRECTORY}`;
+          Alert.alert('Tự động sao lưu đã bật', summaryMessage, [
+            { text: 'Đóng', style: 'cancel' },
+            {
+              text: 'Tải về',
+              onPress: () => downloadBackupFile(result),
+            },
+            {
+              text: 'Chia sẻ',
+              onPress: () => shareBackupFile(result.filePath, result.fileName),
+            },
+          ]);
+        } else {
+          Alert.alert(
+            'Tự động sao lưu đã bật',
+            'Bản sao lưu đầu tiên sẽ được tạo ngay khi đủ điều kiện.',
+          );
+        }
       } catch (error) {
         setAutoBackup(false);
         await saveSettings('autoBackup', false);
+        stopAutoBackupScheduler();
+        Alert.alert(
+          'Lỗi',
+          'Không thể bật tự động sao lưu. Vui lòng thử lại: ' + error.message,
+        );
       }
     } else {
+      stopAutoBackupScheduler();
       Alert.alert(
         'Tự động sao lưu đã tắt',
         'Dữ liệu sẽ không được sao lưu tự động nữa.',
@@ -354,26 +389,14 @@ export default function SettingsScreen() {
 
           <View className="flex-row items-center justify-between py-3 border-b border-gray-100">
             <View className="flex-1">
-              <Text className="text-gray-800 font-semibold">Thông báo</Text>
-              <Text className="text-gray-500 text-xs">
-                Nhận thông báo từ ứng dụng
-              </Text>
-            </View>
-            <Switch
-              value={notifications}
-              onValueChange={handleNotificationToggle}
-              trackColor={{ false: '#d1d5db', true: '#10b981' }}
-              thumbColor={notifications ? '#fff' : '#f3f4f6'}
-            />
-          </View>
-
-          <View className="flex-row items-center justify-between py-3 border-b border-gray-100">
-            <View className="flex-1">
               <Text className="text-gray-800 font-semibold">
                 Tự động sao lưu
               </Text>
               <Text className="text-gray-500 text-xs">
                 Sao lưu dữ liệu định kỳ
+              </Text>
+              <Text className="text-gray-400 text-xs mt-1">
+                Lần gần nhất: {formatLastBackup(lastAutoBackupAt)}
               </Text>
             </View>
             <Switch
