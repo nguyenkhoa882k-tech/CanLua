@@ -3,6 +3,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useEffect, useState } from 'react';
+import { initDatabase } from './src/services/database';
+import { migrateDataToSQLite } from './src/services/migration';
 import WelcomeScreen from './src/screens/WelcomeScreen.jsx';
 import BuyerList from './src/screens/BuyerList.jsx';
 import BuyerDetail from './src/screens/BuyerDetail.jsx';
@@ -13,6 +16,43 @@ import SettingsScreen from './src/screens/SettingsScreen.jsx';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
+  const [dbInitialized, setDbInitialized] = useState(false);
+
+  useEffect(() => {
+    // Initialize database and migrate data when app starts
+    const initializeApp = async () => {
+      try {
+        // First initialize the database
+        await initDatabase();
+        console.log('Database initialized');
+
+        // Then migrate existing data from AsyncStorage
+        const migrationResult = await migrateDataToSQLite();
+        if (migrationResult.success) {
+          if (migrationResult.alreadyMigrated) {
+            console.log('Data already migrated');
+          } else {
+            console.log('Data migrated successfully:', migrationResult);
+          }
+        } else {
+          console.error('Migration failed:', migrationResult.error);
+        }
+
+        setDbInitialized(true);
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+        // Still set to true to allow app to start even if init fails
+        setDbInitialized(true);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  // Show loading screen while database is initializing
+  if (!dbInitialized) {
+    return null;
+  }
 
   return (
     <SafeAreaProvider>

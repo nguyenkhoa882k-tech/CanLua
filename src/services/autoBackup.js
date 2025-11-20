@@ -1,6 +1,6 @@
 import { AppState } from 'react-native';
 import { exportEncryptedBackup } from '../utils/backup';
-import { storage } from './storage';
+import { executeSql } from './database';
 
 export const LAST_AUTO_BACKUP_KEY = 'last_auto_backup_at';
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
@@ -8,6 +8,35 @@ const REQUIRED_INTERVAL_MS = 24 * 60 * 60 * 1000; // run once per day
 
 let intervalId = null;
 let appStateSubscription = null;
+
+const getSettingsValue = async key => {
+  try {
+    const result = await executeSql(
+      'SELECT value FROM app_settings WHERE key = ?',
+      [key],
+    );
+    if (result.rows.length > 0) {
+      return JSON.parse(result.rows.item(0).value);
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting settings value:', error);
+    return null;
+  }
+};
+
+const setSettingsValue = async (key, value) => {
+  try {
+    await executeSql(
+      'INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)',
+      [key, JSON.stringify(value)],
+    );
+    return true;
+  } catch (error) {
+    console.error('Error setting settings value:', error);
+    return false;
+  }
+};
 
 const isIntervalElapsed = lastRunIso => {
   if (!lastRunIso) {
@@ -38,12 +67,12 @@ const clearAppStateListener = () => {
 };
 
 export const runAutoBackupIfDue = async ({ force = false } = {}) => {
-  const settings = (await storage.get('app_settings')) || {};
+  const settings = (await getSettingsValue('app_settings')) || {};
   if (!settings.autoBackup) {
     return null;
   }
 
-  const lastRun = await storage.get(LAST_AUTO_BACKUP_KEY);
+  const lastRun = await getSettingsValue(LAST_AUTO_BACKUP_KEY);
   if (!force && !isIntervalElapsed(lastRun)) {
     return null;
   }
@@ -51,7 +80,7 @@ export const runAutoBackupIfDue = async ({ force = false } = {}) => {
   try {
     const result = await exportEncryptedBackup();
     const timestamp = new Date().toISOString();
-    await storage.set(LAST_AUTO_BACKUP_KEY, timestamp);
+    await setSettingsValue(LAST_AUTO_BACKUP_KEY, timestamp);
     return { ...result, timestamp };
   } catch (error) {
     console.warn('Auto backup failed', error);
@@ -83,11 +112,11 @@ export const stopAutoBackupScheduler = () => {
 };
 
 export const getLastAutoBackupTime = async () => {
-  return (await storage.get(LAST_AUTO_BACKUP_KEY)) || null;
+  return (await getSettingsValue(LAST_AUTO_BACKUP_KEY)) || null;
 };
 
 export const bootstrapAutoBackupScheduler = async () => {
-  const settings = (await storage.get('app_settings')) || {};
+  const settings = (await getSettingsValue('app_settings')) || {};
   if (settings.autoBackup) {
     startAutoBackupScheduler();
   } else {

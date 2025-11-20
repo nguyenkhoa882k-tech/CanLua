@@ -1,12 +1,28 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, Modal, Animated, StatusBar, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  Alert,
+  Modal,
+  Animated,
+  StatusBar,
+  StyleSheet,
+} from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { getBuyer } from '../services/buyers';
-import { storage } from '../services/storage';
+import {
+  getSettings,
+  getSettingValue,
+  setSettingValue,
+} from '../services/settings';
 import { MoneyInput } from '../components/MoneyInput';
 import { formatMoney, formatWeight } from '../utils/numberUtils';
 
-const genId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+const genId = () =>
+  Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 export default function BuyerDetail() {
   const route = useRoute();
@@ -25,58 +41,69 @@ export default function BuyerDetail() {
   const loadData = async () => {
     const b = await getBuyer(buyerId);
     setBuyer(b);
-    const sellersData = await storage.get(`sellers_${buyerId}`) || [];
-    
+    const sellersData = (await getSettingValue(`sellers_${buyerId}`)) || [];
+
     // Get settings for correct divisor
-    const settings = await storage.get('app_settings');
-    const digitDivisor = (settings && settings.fourDigitInput) ? 100 : 10;
-    
+    const settings = await getSettings();
+    const digitDivisor = settings && settings.fourDigitInput ? 100 : 10;
+
     let totalBagsCount = 0;
     let totalKgCount = 0;
-    
+
     // Load confirmed status and calculate totals for each seller
-    const sellersWithStatus = await Promise.all(sellersData.map(async (seller) => {
-      const weighKey = `weighing_${buyerId}_${seller.id}`;
-      const weighData = await storage.get(weighKey);
-      
-      if (weighData && weighData.confirmed) {
-        const tables = weighData.tables || [];
-        
-        // Calculate total kg and bags from all tables for this seller
-        let sellerKg = 0;
-        let sellerBags = 0;
-        
-        for (const table of tables) {
-          const tableWeight = table.rows.reduce((rowSum, row) => {
-            return rowSum + Object.values(row).reduce((cellSum, val) => cellSum + (Number(val) || 0) / digitDivisor, 0);
-          }, 0);
-          
-          sellerKg += tableWeight;
-          
-          // Count filled cells as bags
-          table.rows.forEach(row => {
-            if (row.a && Number(row.a) > 0) sellerBags++;
-            if (row.b && Number(row.b) > 0) sellerBags++;
-            if (row.c && Number(row.c) > 0) sellerBags++;
-            if (row.d && Number(row.d) > 0) sellerBags++;
-            if (row.e && Number(row.e) > 0) sellerBags++;
-          });
+    const sellersWithStatus = await Promise.all(
+      sellersData.map(async seller => {
+        const weighKey = `weighing_${buyerId}_${seller.id}`;
+        const weighData = await getSettingValue(weighKey);
+
+        if (weighData && weighData.confirmed) {
+          const tables = weighData.tables || [];
+
+          // Calculate total kg and bags from all tables for this seller
+          let sellerKg = 0;
+          let sellerBags = 0;
+
+          for (const table of tables) {
+            const tableWeight = table.rows.reduce((rowSum, row) => {
+              return (
+                rowSum +
+                Object.values(row).reduce(
+                  (cellSum, val) => cellSum + (Number(val) || 0) / digitDivisor,
+                  0,
+                )
+              );
+            }, 0);
+
+            sellerKg += tableWeight;
+
+            // Count filled cells as bags
+            table.rows.forEach(row => {
+              if (row.a && Number(row.a) > 0) sellerBags++;
+              if (row.b && Number(row.b) > 0) sellerBags++;
+              if (row.c && Number(row.c) > 0) sellerBags++;
+              if (row.d && Number(row.d) > 0) sellerBags++;
+              if (row.e && Number(row.e) > 0) sellerBags++;
+            });
+          }
+
+          // Add to totals
+          totalKgCount += sellerKg;
+          totalBagsCount += sellerBags;
         }
-        
-        // Add to totals
-        totalKgCount += sellerKg;
-        totalBagsCount += sellerBags;
-      }
-      
-      return {
-        ...seller,
-        confirmed: weighData?.confirmed || false,
-      };
-    }));
-    
+
+        return {
+          ...seller,
+          confirmed: weighData?.confirmed || false,
+        };
+      }),
+    );
+
     console.log('📦 BuyerDetail - Total bags:', totalBagsCount);
-    console.log('📦 BuyerDetail - Total kg:', Math.round(totalKgCount * 10) / 10);
-    
+    console.log(
+      '📦 BuyerDetail - Total kg:',
+      Math.round(totalKgCount * 10) / 10,
+    );
+
     setSellers(sellersWithStatus);
     setTotalBags(totalBagsCount);
     setTotalKg(Math.round(totalKgCount * 10) / 10);
@@ -91,15 +118,32 @@ export default function BuyerDetail() {
   const openModal = () => {
     setModalVisible(true);
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 7, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
     ]).start();
   };
 
   const closeModal = () => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 50, duration: 150, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 50,
+        duration: 150,
+        useNativeDriver: true,
+      }),
     ]).start(() => {
       setModalVisible(false);
       setName('');
@@ -108,8 +152,10 @@ export default function BuyerDetail() {
   };
 
   const onAddSeller = async () => {
-    if (!name.trim()) return Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên người bán');
-    if (!price.trim()) return Alert.alert('Thiếu thông tin', 'Vui lòng nhập đơn giá');
+    if (!name.trim())
+      return Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên người bán');
+    if (!price.trim())
+      return Alert.alert('Thiếu thông tin', 'Vui lòng nhập đơn giá');
     const seller = {
       id: genId(),
       name: name.trim(),
@@ -117,22 +163,22 @@ export default function BuyerDetail() {
       createdAt: new Date().toISOString(),
     };
     const updated = [seller, ...sellers];
-    await storage.set(`sellers_${buyerId}`, updated);
+    await setSettingValue(`sellers_${buyerId}`, updated);
     setSellers(updated);
     closeModal();
   };
 
-  const onDeleteSeller = async (id) => {
+  const onDeleteSeller = async id => {
     Alert.alert('Xoá người bán', 'Bạn có chắc muốn xoá?', [
       { text: 'Huỷ', style: 'cancel' },
-      { 
-        text: 'Xoá', 
-        style: 'destructive', 
+      {
+        text: 'Xoá',
+        style: 'destructive',
         onPress: async () => {
           const updated = sellers.filter(s => s.id !== id);
-          await storage.set(`sellers_${buyerId}`, updated);
+          await setSettingValue(`sellers_${buyerId}`, updated);
           setSellers(updated);
-        }
+        },
       },
     ]);
   };
@@ -140,7 +186,7 @@ export default function BuyerDetail() {
   return (
     <View className="flex-1 bg-gray-50">
       <StatusBar barStyle="light-content" backgroundColor="#10b981" />
-      
+
       {/* Header */}
       <View className="bg-emerald-500 pt-12 pb-6 px-5 rounded-b-3xl shadow-lg">
         <TouchableOpacity onPress={() => navigation.goBack()} className="mb-3">
@@ -148,7 +194,9 @@ export default function BuyerDetail() {
         </TouchableOpacity>
         <View className="flex-row items-center mb-2">
           <Text className="text-xl mr-2">🚜</Text>
-          <Text className="text-2xl font-bold text-white flex-1">{buyer?.name}</Text>
+          <Text className="text-2xl font-bold text-white flex-1">
+            {buyer?.name}
+          </Text>
         </View>
         <Text className="text-emerald-100 text-sm">Quản lý người bán lúa</Text>
       </View>
@@ -156,7 +204,9 @@ export default function BuyerDetail() {
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Text className="text-2xl font-bold text-emerald-600">{sellers.length}</Text>
+          <Text className="text-2xl font-bold text-emerald-600">
+            {sellers.length}
+          </Text>
           <Text className="text-gray-500 text-xs mt-1">Người bán</Text>
         </View>
         <View style={styles.statCard}>
@@ -164,7 +214,9 @@ export default function BuyerDetail() {
           <Text className="text-gray-500 text-xs mt-1">Tổng bao</Text>
         </View>
         <View style={styles.statCard}>
-          <Text className="text-2xl font-bold text-amber-600">{formatWeight(totalKg)}</Text>
+          <Text className="text-2xl font-bold text-amber-600">
+            {formatWeight(totalKg)}
+          </Text>
           <Text className="text-gray-500 text-xs mt-1">Tổng kg</Text>
         </View>
       </View>
@@ -172,11 +224,13 @@ export default function BuyerDetail() {
       {/* List */}
       <FlatList
         data={sellers}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() => navigation.navigate('SellerDetail', { buyerId, seller: item })}
+            onPress={() =>
+              navigation.navigate('SellerDetail', { buyerId, seller: item })
+            }
             style={styles.sellerCard}
             activeOpacity={0.7}
           >
@@ -184,43 +238,61 @@ export default function BuyerDetail() {
               <View className="flex-1">
                 <View className="flex-row items-center mb-1">
                   <Text className="text-xl mr-2">👤</Text>
-                  <Text className="text-lg font-bold text-gray-800 flex-1">{item.name}</Text>
+                  <Text className="text-lg font-bold text-gray-800 flex-1">
+                    {item.name}
+                  </Text>
                   {item.confirmed && (
                     <View className="bg-green-100 px-2 py-1 rounded-full ml-2">
-                      <Text className="text-green-700 text-xs font-bold">✅</Text>
+                      <Text className="text-green-700 text-xs font-bold">
+                        ✅
+                      </Text>
                     </View>
                   )}
                 </View>
-                <Text className="text-gray-400 text-xs">📅 {new Date(item.createdAt).toLocaleDateString('vi-VN')}</Text>
+                <Text className="text-gray-400 text-xs">
+                  📅 {new Date(item.createdAt).toLocaleDateString('vi-VN')}
+                </Text>
               </View>
               <TouchableOpacity
                 onPress={() => onDeleteSeller(item.id)}
                 className="bg-red-50 px-3 py-1.5 rounded-lg"
               >
-                <Text className="text-red-600 text-xs font-semibold">🗑️ Xoá</Text>
+                <Text className="text-red-600 text-xs font-semibold">
+                  🗑️ Xoá
+                </Text>
               </TouchableOpacity>
             </View>
 
             {item.unitPrice != null && (
               <View className="bg-emerald-50 rounded-xl p-3 mb-3">
-                <Text className="text-emerald-700 font-bold text-base">{formatMoney(item.unitPrice)} đ/kg</Text>
+                <Text className="text-emerald-700 font-bold text-base">
+                  {formatMoney(item.unitPrice)} đ/kg
+                </Text>
                 <Text className="text-emerald-600 text-xs">Đơn giá</Text>
               </View>
             )}
 
             <TouchableOpacity
-              onPress={() => navigation.navigate('SellerDetail', { buyerId, seller: item })}
+              onPress={() =>
+                navigation.navigate('SellerDetail', { buyerId, seller: item })
+              }
               className="bg-emerald-500 rounded-xl py-3 items-center"
             >
-              <Text className="text-white font-semibold">Mở chi tiết cân lúa →</Text>
+              <Text className="text-white font-semibold">
+                Mở chi tiết cân lúa →
+              </Text>
             </TouchableOpacity>
           </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View className="items-center mt-20">
             <Text className="text-6xl mb-4">👥</Text>
-            <Text className="text-gray-400 text-base">Chưa có người bán nào</Text>
-            <Text className="text-gray-300 text-sm mt-1">Nhấn nút + để thêm người bán</Text>
+            <Text className="text-gray-400 text-base">
+              Chưa có người bán nào
+            </Text>
+            <Text className="text-gray-300 text-sm mt-1">
+              Nhấn nút + để thêm người bán
+            </Text>
           </View>
         }
       />
@@ -235,7 +307,12 @@ export default function BuyerDetail() {
       </TouchableOpacity>
 
       {/* Modal */}
-      <Modal visible={modalVisible} transparent animationType="none" onRequestClose={closeModal}>
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="none"
+        onRequestClose={closeModal}
+      >
         <View style={styles.modalOverlay}>
           <Animated.View
             style={{
@@ -244,11 +321,17 @@ export default function BuyerDetail() {
             }}
             className="bg-white rounded-3xl p-6 shadow-2xl"
           >
-            <Text className="text-2xl font-bold text-gray-800 mb-1">➕ Thêm người bán</Text>
-            <Text className="text-gray-400 text-sm mb-6">Nhập thông tin người bán lúa</Text>
+            <Text className="text-2xl font-bold text-gray-800 mb-1">
+              ➕ Thêm người bán
+            </Text>
+            <Text className="text-gray-400 text-sm mb-6">
+              Nhập thông tin người bán lúa
+            </Text>
 
             <View className="mb-4">
-              <Text className="text-gray-700 font-semibold mb-2">Tên người bán <Text className="text-red-500">*</Text></Text>
+              <Text className="text-gray-700 font-semibold mb-2">
+                Tên người bán <Text className="text-red-500">*</Text>
+              </Text>
               <TextInput
                 className="bg-gray-50 rounded-xl px-4 py-3 text-base border border-gray-200"
                 placeholder="Nhập tên người bán..."
@@ -259,7 +342,9 @@ export default function BuyerDetail() {
             </View>
 
             <View className="mb-6">
-              <Text className="text-gray-700 font-semibold mb-2">Đơn giá (đ/kg)</Text>
+              <Text className="text-gray-700 font-semibold mb-2">
+                Đơn giá (đ/kg)
+              </Text>
               <MoneyInput
                 className="bg-gray-50 rounded-xl px-4 py-3 txt-base border border-gray-200"
                 placeholder="Nhập đơn giá ..."
@@ -273,7 +358,9 @@ export default function BuyerDetail() {
                 onPress={closeModal}
                 className="flex-1 bg-gray-100 rounded-xl py-4 items-center"
               >
-                <Text className="text-gray-700 font-semibold text-base">Huỷ</Text>
+                <Text className="text-gray-700 font-semibold text-base">
+                  Huỷ
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onAddSeller}

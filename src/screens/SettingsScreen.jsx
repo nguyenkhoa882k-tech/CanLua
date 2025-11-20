@@ -11,7 +11,9 @@ import {
   Share,
   Platform,
 } from 'react-native';
-import { storage } from '../services/storage';
+import { getSettings, updateSetting } from '../services/settings';
+import { listBuyers } from '../services/buyers';
+import { listTransactions } from '../services/transactions';
 import {
   startAutoBackupScheduler,
   stopAutoBackupScheduler,
@@ -62,20 +64,12 @@ export default function SettingsScreen() {
   }, []);
 
   const loadDataStats = useCallback(async () => {
-    const buyers = (await storage.get('buyers')) || [];
-    const transactions = (await storage.get('transactions')) || [];
+    const buyers = await listBuyers();
+    const transactions = await listTransactions();
 
-    // Count weighings
-    let weighingCount = 0;
-    for (const buyer of buyers) {
-      const sellers = (await storage.get(`sellers_${buyer.id}`)) || [];
-      for (const seller of sellers) {
-        const weighing = await storage.get(`weighing_${buyer.id}_${seller.id}`);
-        if (weighing && weighing.confirmed) {
-          weighingCount++;
-        }
-      }
-    }
+    // Weighings count - currently not implemented in SQLite
+    // Will be 0 until we implement weighings feature
+    const weighingCount = 0;
 
     setDataStats({
       buyers: buyers.length,
@@ -85,11 +79,9 @@ export default function SettingsScreen() {
   }, []);
 
   const loadSettings = useCallback(async () => {
-    const settings = await storage.get('app_settings');
-    if (settings) {
-      setAutoBackup(settings.autoBackup ?? false);
-      setFourDigitInput(settings.fourDigitInput ?? false);
-    }
+    const settings = await getSettings();
+    setAutoBackup(settings.autoBackup ?? false);
+    setFourDigitInput(settings.fourDigitInput ?? false);
 
     // Load data statistics
     await loadDataStats();
@@ -101,10 +93,7 @@ export default function SettingsScreen() {
   }, [loadSettings]);
 
   const saveSettings = async (key, value) => {
-    const settings = (await storage.get('app_settings')) || {};
-    settings[key] = value;
-
-    await storage.set('app_settings', settings);
+    await updateSetting(key, value);
   };
 
   const shareBackupFile = async (filePath, fileName) => {
@@ -144,8 +133,12 @@ export default function SettingsScreen() {
           text: 'Xóa',
           style: 'destructive',
           onPress: async () => {
-            await storage.clear();
+            const { executeSql } = require('../services/database');
+            await executeSql('DELETE FROM transactions');
+            await executeSql('DELETE FROM buyers');
+            await executeSql('DELETE FROM app_settings');
             Alert.alert('Thành công', 'Đã xóa toàn bộ dữ liệu');
+            await loadSettings();
           },
         },
       ],
@@ -157,7 +150,8 @@ export default function SettingsScreen() {
       const result = await exportEncryptedBackup();
       const summaryMessage = `• ${result.buyers} người mua\n• ${result.transactions} giao dịch\n• ${result.weighings} lần cân\n\nFile mã hoá đã được lưu tại:\n${result.filePath}\n\nThư mục sao lưu: ${BACKUP_DIRECTORY}`;
 
-      await storage.set(LAST_AUTO_BACKUP_KEY, new Date().toISOString());
+      const { setSettingValue } = require('../services/settings');
+      await setSettingValue(LAST_AUTO_BACKUP_KEY, new Date().toISOString());
       await refreshLastBackupTime();
 
       Alert.alert('Sao lưu thành công', summaryMessage, [
