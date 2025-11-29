@@ -8,15 +8,14 @@ import React, {
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
-  Switch,
   ScrollView,
   StatusBar,
-  Alert,
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import CustomAlert from '../components/CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 import {
   useRoute,
   useNavigation,
@@ -27,6 +26,7 @@ import {
   setSettingValue,
   getSettingValue,
 } from '../services/settings';
+import { updateBuyer } from '../services/buyers';
 import {
   MoneyInput,
   WeightInput,
@@ -45,8 +45,9 @@ export default function SellerDetail() {
   const { params } = useRoute();
   const navigation = useNavigation();
   const { buyerId, seller } = params || {};
+  const { alertConfig, showAlert, hideAlert } = useCustomAlert();
 
-  const [name, setName] = useState(seller?.name || '');
+  const [name] = useState(seller?.name || '');
   const [unitPrice, setUnitPrice] = useState(
     seller?.unitPrice ? String(seller.unitPrice) : '',
   );
@@ -59,7 +60,7 @@ export default function SellerDetail() {
   const [tables, setTables] = useState([
     {
       id: 1,
-      rows: Array(6)
+      rows: new Array(6)
         .fill({})
         .map(() => ({ a: '', b: '', c: '', d: '', e: '' })),
     },
@@ -103,6 +104,7 @@ export default function SellerDetail() {
         );
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buyerId, seller?.id]);
 
   // Reload settings every time screen focuses
@@ -132,9 +134,19 @@ export default function SellerDetail() {
       unitPrice,
       updatedAt: new Date().toISOString(),
     });
+
+    // Also update seller's unitPrice in sellers list if changed
+    if (unitPrice && seller?.unitPrice !== Number(unitPrice)) {
+      const sellersData = (await getSettingValue(`sellers_${buyerId}`)) || [];
+      const updatedSellers = sellersData.map(s =>
+        s.id === seller?.id ? { ...s, unitPrice: Number(unitPrice) } : s,
+      );
+      await setSettingValue(`sellers_${buyerId}`, updatedSellers);
+    }
   }, [
     buyerId,
     seller?.id,
+    seller?.unitPrice,
     tables,
     tarePerBag,
     impurity,
@@ -150,17 +162,7 @@ export default function SellerDetail() {
   useEffect(() => {
     const timer = setTimeout(saveData, 1500);
     return () => clearTimeout(timer);
-  }, [
-    tables,
-    tarePerBag,
-    impurity,
-    deposit,
-    paid,
-    confirmed,
-    locked,
-    currentTableIndex,
-    unitPrice,
-  ]);
+  }, [saveData]);
 
   // Memoize divisor to avoid recalculation
   const digitDivisor = useMemo(() => (maxDigits === 4 ? 100 : 10), [maxDigits]);
@@ -185,15 +187,15 @@ export default function SellerDetail() {
   // Calculate bags count = number of filled cells across all tables
   const bagsCount = useMemo(() => {
     let count = 0;
-    tables.forEach(table => {
-      table.rows.forEach(row => {
+    for (const table of tables) {
+      for (const row of table.rows) {
         if (row.a && Number(row.a) > 0) count++;
         if (row.b && Number(row.b) > 0) count++;
         if (row.c && Number(row.c) > 0) count++;
         if (row.d && Number(row.d) > 0) count++;
         if (row.e && Number(row.e) > 0) count++;
-      });
-    });
+      }
+    }
     return count;
   }, [tables]);
 
@@ -251,7 +253,7 @@ export default function SellerDetail() {
             ...prev,
             {
               id: prev.length + 1,
-              rows: Array(6)
+              rows: new Array(6)
                 .fill({})
                 .map(() => ({ a: '', b: '', c: '', d: '', e: '' })),
             },
@@ -259,30 +261,19 @@ export default function SellerDetail() {
         }
         setCurrentTableIndex(ti + 1);
         setViewingTableIndex(ti + 1);
+
+        // Wait longer for render and scroll, then focus
         setTimeout(() => {
           scrollToTable(ti + 1);
+        }, 50);
+
+        setTimeout(() => {
           const nextRef = inputRefs.current[`${ti + 1}-0-a`];
-          if (nextRef) nextRef.focus();
-        }, 100);
+          if (nextRef) {
+            nextRef.focus();
+          }
+        }, 300);
       }
-    }
-  };
-
-  const ensureNextTable = () => {
-    const last = tables[tables.length - 1];
-    const lastRow = last.rows[4];
-    const lastColumnFilled = lastRow.e && lastRow.e.length > 0;
-
-    if (lastColumnFilled && tables.length < 10) {
-      setTables(prev => [
-        ...prev,
-        {
-          id: prev.length + 1,
-          rows: Array(6)
-            .fill({})
-            .map(() => ({ a: '', b: '', c: '', d: '', e: '' })),
-        },
-      ]);
     }
   };
 
@@ -344,26 +335,33 @@ export default function SellerDetail() {
       setViewingTableIndex(currentTableIndex);
       setTimeout(() => {
         scrollToTable(currentTableIndex);
+      }, 50);
+      setTimeout(() => {
         focusCurrentCell();
-      }, 100);
+      }, 300);
     }
   };
 
   const onConfirm = async () => {
     if (confirmed) {
-      Alert.alert('Đã kết sổ', 'Giao dịch này đã được xác nhận và kết sổ.');
+      showAlert({
+        title: 'Đã kết sổ',
+        message: 'Giao dịch này đã được xác nhận và kết sổ.',
+        buttons: [{ text: 'OK', onPress: hideAlert }],
+      });
     } else {
-      Alert.alert(
-        'Xác nhận kết sổ',
-        `Tổng tiền: ${amount.toLocaleString()} đ\nCòn lại: ${remaining.toLocaleString()} đ\n\nBạn có chắc muốn kết sổ?`,
-        [
-          { text: 'Huỷ', style: 'cancel' },
+      showAlert({
+        title: 'Xác nhận kết sổ',
+        message: `Tổng tiền: ${amount.toLocaleString()} đ\nCòn lại: ${remaining.toLocaleString()} đ\n\nBạn có chắc muốn kết sổ?`,
+        buttons: [
+          { text: 'Huỷ', onPress: hideAlert },
           {
             text: 'Xác nhận',
             onPress: async () => {
+              hideAlert();
               // Save current weighing as confirmed FIRST
               const key = `weighing_${buyerId}_${seller?.id}`;
-              await storage.set(key, {
+              await setSettingValue(key, {
                 tables,
                 tarePerBag,
                 impurity,
@@ -379,38 +377,39 @@ export default function SellerDetail() {
               setConfirmed(true);
 
               // Now calculate totals including this weighing
-              const { updateBuyer } = require('../services/buyers');
               const sellersData =
-                (await storage.get(`sellers_${buyerId}`)) || [];
+                (await getSettingValue(`sellers_${buyerId}`)) || [];
               let totalWeight = 0;
               let totalWeighCount = 0;
 
               // Get settings for correct divisor
-              const settings = await storage.get('app_settings');
-              const digitDivisor =
-                settings && settings.fourDigitInput ? 100 : 10;
+              const settings = await getSettings();
+              const divisor = settings && settings.fourDigitInput ? 100 : 10;
 
               console.log('🔄 Calculating totals for buyer:', buyerId);
               console.log('🔄 Sellers:', sellersData.length);
-              console.log('🔄 Divisor:', digitDivisor);
+              console.log('🔄 Divisor:', divisor);
 
               // Calculate totals from all confirmed weighings
               for (const s of sellersData) {
                 const weighKey = `weighing_${buyerId}_${s.id}`;
-                const weighData = await storage.get(weighKey);
+                const weighData = await getSettingValue(weighKey);
 
                 if (weighData && weighData.confirmed) {
-                  const tables = weighData.tables || [];
-                  console.log(`🔄 Seller ${s.name} - Tables:`, tables.length);
+                  const tablesToCalc = weighData.tables || [];
+                  console.log(
+                    `🔄 Seller ${s.name} - Tables:`,
+                    tablesToCalc.length,
+                  );
 
                   // Calculate weight from ALL rows in ALL tables
-                  for (const table of tables) {
+                  for (const table of tablesToCalc) {
                     const tableWeight = table.rows.reduce((rowSum, row) => {
                       return (
                         rowSum +
                         Object.values(row).reduce(
                           (cellSum, val) =>
-                            cellSum + (Number(val) || 0) / digitDivisor,
+                            cellSum + (Number(val) || 0) / divisor,
                           0,
                         )
                       );
@@ -434,21 +433,22 @@ export default function SellerDetail() {
                 },
               });
 
-              Alert.alert(
-                'Thành công',
-                `Đã kết sổ!\n\nTổng: ${
+              showAlert({
+                title: 'Thành công',
+                message: `Đã kết sổ!\n\nTổng: ${
                   Math.round(totalWeight * 10) / 10
                 } kg\nLần cân: ${totalWeighCount}`,
-              );
+                buttons: [{ text: 'OK', onPress: hideAlert }],
+              });
             },
           },
         ],
-      );
+      });
     }
   };
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#10b981" />
 
       {/* Header */}
@@ -474,7 +474,7 @@ export default function SellerDetail() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Summary Card */}
         <View className="mx-5 mt-4 bg-white rounded-3xl p-5 shadow-lg">
           <Text className="text-xl font-bold text-gray-800 mb-4">
@@ -485,7 +485,11 @@ export default function SellerDetail() {
             <TouchableOpacity
               className="flex-1 bg-emerald-50 rounded-2xl p-4"
               onPress={() =>
-                Alert.alert('Tổng kg', numberToVietnamese(totalKgAllTables))
+                showAlert({
+                  title: 'Tổng kg',
+                  message: numberToVietnamese(totalKgAllTables),
+                  buttons: [{ text: 'OK', onPress: hideAlert }],
+                })
               }
             >
               <Text className="text-3xl font-bold text-emerald-700">
@@ -537,10 +541,11 @@ export default function SellerDetail() {
           <TouchableOpacity
             className="bg-emerald-50 rounded-2xl p-4 mb-3 border-2 border-emerald-300"
             onPress={() =>
-              Alert.alert(
-                'Khối lượng thực',
-                numberToVietnamese(netAfterImpurity),
-              )
+              showAlert({
+                title: 'Khối lượng thực',
+                message: numberToVietnamese(netAfterImpurity),
+                buttons: [{ text: 'OK', onPress: hideAlert }],
+              })
             }
           >
             <Text className="text-emerald-700 font-bold text-lg">
@@ -568,7 +573,13 @@ export default function SellerDetail() {
 
           <TouchableOpacity
             className="bg-amber-50 rounded-2xl p-4 mb-3"
-            onPress={() => Alert.alert('Thành tiền', moneyToVietnamese(amount))}
+            onPress={() =>
+              showAlert({
+                title: 'Thành tiền',
+                message: moneyToVietnamese(amount),
+                buttons: [{ text: 'OK', onPress: hideAlert }],
+              })
+            }
           >
             <Text className="text-amber-700 font-bold text-xl">
               💰 {amount.toLocaleString('vi-VN')} đ
@@ -685,7 +696,7 @@ export default function SellerDetail() {
           </View>
 
           {/* Single Table View - Only render current viewing table */}
-          <View style={{ paddingHorizontal: 20 }}>
+          <View style={styles.tableContainer}>
             {(() => {
               const ti = viewingTableIndex;
               const table = tables[ti];
@@ -745,8 +756,8 @@ export default function SellerDetail() {
                             className="flex-1 bg-gray-50 rounded-xl px-2 py-3 text-center font-bold border border-gray-200"
                             style={
                               !canEdit && locked
-                                ? { backgroundColor: '#f3f4f6', opacity: 0.5 }
-                                : {}
+                                ? styles.disabledCell
+                                : undefined
                             }
                             placeholder="0"
                             value={tables[ti].rows[ri][key]}
@@ -794,11 +805,32 @@ export default function SellerDetail() {
           </Text>
         </View>
       </ScrollView>
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={hideAlert}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  tableContainer: {
+    paddingHorizontal: 20,
+  },
+  disabledCell: {
+    backgroundColor: '#f3f4f6',
+    opacity: 0.5,
+  },
   summaryRow: {
     flexDirection: 'row',
     gap: 12,

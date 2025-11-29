@@ -1,12 +1,13 @@
-import { StatusBar, useColorScheme, Text } from 'react-native';
+import { StatusBar, useColorScheme, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import { useEffect, useState } from 'react';
 import { initDatabase } from './src/services/database';
 import { migrateDataToSQLite } from './src/services/migration';
-import WelcomeScreen from './src/screens/WelcomeScreen.jsx';
+import { bootstrapAutoBackupScheduler } from './src/services/autoBackup';
 import BuyerList from './src/screens/BuyerList.jsx';
 import BuyerDetail from './src/screens/BuyerDetail.jsx';
 import SellerDetail from './src/screens/SellerDetail.jsx';
@@ -39,6 +40,11 @@ function App() {
         }
 
         setDbInitialized(true);
+
+        // Start auto backup scheduler after database is ready
+        bootstrapAutoBackupScheduler().catch(error => {
+          console.warn('Không thể khởi động bộ hẹn giờ sao lưu', error);
+        });
       } catch (error) {
         console.error('Failed to initialize app:', error);
         // Still set to true to allow app to start even if init fails
@@ -56,8 +62,13 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppNavigator />
+      <LinearGradient
+        colors={['#f0fdf4', '#dcfce7', '#bbf7d0']}
+        style={styles.gradient}
+      >
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        <AppNavigator />
+      </LinearGradient>
     </SafeAreaProvider>
   );
 }
@@ -126,10 +137,9 @@ function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Welcome"
+        initialRouteName="Main"
         screenOptions={{ headerShown: false }}
       >
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="BuyerDetail" component={BuyerDetail} />
         <Stack.Screen name="SellerDetail" component={SellerDetail} />
@@ -137,5 +147,11 @@ function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
+});
 
 export default App;

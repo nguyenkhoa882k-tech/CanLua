@@ -19,6 +19,8 @@ import {
   setSettingValue,
 } from '../services/settings';
 import { MoneyInput } from '../components/MoneyInput';
+import CustomAlert from '../components/CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 import { formatMoney, formatWeight } from '../utils/numberUtils';
 
 const genId = () =>
@@ -37,6 +39,7 @@ export default function BuyerDetail() {
   const [price, setPrice] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const { alertConfig, showAlert, hideAlert } = useCustomAlert();
 
   const loadData = async () => {
     const b = await getBuyer(buyerId);
@@ -56,7 +59,8 @@ export default function BuyerDetail() {
         const weighKey = `weighing_${buyerId}_${seller.id}`;
         const weighData = await getSettingValue(weighKey);
 
-        if (weighData && weighData.confirmed) {
+        // Calculate totals regardless of confirmed status
+        if (weighData && weighData.tables) {
           const tables = weighData.tables || [];
 
           // Calculate total kg and bags from all tables for this seller
@@ -77,16 +81,16 @@ export default function BuyerDetail() {
             sellerKg += tableWeight;
 
             // Count filled cells as bags
-            table.rows.forEach(row => {
+            for (const row of table.rows) {
               if (row.a && Number(row.a) > 0) sellerBags++;
               if (row.b && Number(row.b) > 0) sellerBags++;
               if (row.c && Number(row.c) > 0) sellerBags++;
               if (row.d && Number(row.d) > 0) sellerBags++;
               if (row.e && Number(row.e) > 0) sellerBags++;
-            });
+            }
           }
 
-          // Add to totals
+          // Add to totals (không cần kiểm tra confirmed)
           totalKgCount += sellerKg;
           totalBagsCount += sellerBags;
         }
@@ -113,6 +117,7 @@ export default function BuyerDetail() {
     loadData();
     const unsub = navigation.addListener('focus', loadData);
     return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buyerId, navigation]);
 
   const openModal = () => {
@@ -153,9 +158,9 @@ export default function BuyerDetail() {
 
   const onAddSeller = async () => {
     if (!name.trim())
-      return Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên người bán');
+      return showAlert('Thiếu thông tin', 'Vui lòng nhập tên người bán');
     if (!price.trim())
-      return Alert.alert('Thiếu thông tin', 'Vui lòng nhập đơn giá');
+      return showAlert('Thiếu thông tin', 'Vui lòng nhập đơn giá');
     const seller = {
       id: genId(),
       name: name.trim(),
@@ -169,7 +174,7 @@ export default function BuyerDetail() {
   };
 
   const onDeleteSeller = async id => {
-    Alert.alert('Xoá người bán', 'Bạn có chắc muốn xoá?', [
+    showAlert('Xoá người bán', 'Bạn có chắc muốn xoá?', [
       { text: 'Huỷ', style: 'cancel' },
       {
         text: 'Xoá',
@@ -184,7 +189,7 @@ export default function BuyerDetail() {
   };
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
       <StatusBar barStyle="light-content" backgroundColor="#10b981" />
 
       {/* Header */}
@@ -372,6 +377,15 @@ export default function BuyerDetail() {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={hideAlert}
+      />
     </View>
   );
 }

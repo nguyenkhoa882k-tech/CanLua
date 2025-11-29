@@ -4,13 +4,14 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Switch,
   StyleSheet,
   Linking,
   Share,
   Platform,
 } from 'react-native';
+import CustomAlert from '../components/CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 import { getSettings, updateSetting } from '../services/settings';
 import { listBuyers } from '../services/buyers';
 import { listTransactions } from '../services/transactions';
@@ -37,6 +38,7 @@ import {
 export default function SettingsScreen() {
   useInterstitialAd(); // Show interstitial ad
   const navigation = useNavigation();
+  const { alertConfig, showAlert, hideAlert } = useCustomAlert();
 
   const [autoBackup, setAutoBackup] = useState(false);
   const [fourDigitInput, setFourDigitInput] = useState(false);
@@ -114,35 +116,46 @@ export default function SettingsScreen() {
         encrypted: backup.encrypted,
         fileName: backup.fileName,
       });
-      Alert.alert(
-        'Đã tải về',
-        `File đã được sao chép vào thư mục Tải xuống:\n${saved.filePath}\n\nThư mục mặc định: ${BACKUP_DOWNLOAD_DIRECTORY}`,
-      );
+      showAlert({
+        title: 'Đã tải về',
+        message: `File đã được sao chép vào thư mục Tải xuống:\n${saved.filePath}\n\nThư mục mặc định: ${BACKUP_DOWNLOAD_DIRECTORY}`,
+        buttons: [{ text: 'OK', onPress: hideAlert }],
+      });
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể tải file về: ' + error.message);
+      showAlert({
+        title: 'Lỗi',
+        message: 'Không thể tải file về: ' + error.message,
+        buttons: [{ text: 'OK', onPress: hideAlert }],
+      });
     }
   };
 
   const handleClearData = () => {
-    Alert.alert(
-      'Xóa tất cả dữ liệu',
-      'Bạn có chắc muốn xóa toàn bộ dữ liệu? Hành động này không thể hoàn tác!',
-      [
-        { text: 'Hủy', style: 'cancel' },
+    showAlert({
+      title: 'Xóa tất cả dữ liệu',
+      message:
+        'Bạn có chắc muốn xóa toàn bộ dữ liệu? Hành động này không thể hoàn tác!',
+      buttons: [
+        { text: 'Hủy', onPress: hideAlert },
         {
           text: 'Xóa',
           style: 'destructive',
           onPress: async () => {
+            hideAlert();
             const { executeSql } = require('../services/database');
             await executeSql('DELETE FROM transactions');
             await executeSql('DELETE FROM buyers');
             await executeSql('DELETE FROM app_settings');
-            Alert.alert('Thành công', 'Đã xóa toàn bộ dữ liệu');
+            showAlert({
+              title: 'Thành công',
+              message: 'Đã xóa toàn bộ dữ liệu',
+              buttons: [{ text: 'OK', onPress: hideAlert }],
+            });
             await loadSettings();
           },
         },
       ],
-    );
+    });
   };
 
   const handleExportData = async () => {
@@ -154,21 +167,35 @@ export default function SettingsScreen() {
       await setSettingValue(LAST_AUTO_BACKUP_KEY, new Date().toISOString());
       await refreshLastBackupTime();
 
-      Alert.alert('Sao lưu thành công', summaryMessage, [
-        { text: 'Đóng', style: 'cancel' },
-        {
-          text: 'Tải về',
-          onPress: () => downloadBackupFile(result),
-        },
-        {
-          text: 'Chia sẻ',
-          onPress: () => shareBackupFile(result.filePath, result.fileName),
-        },
-      ]);
+      showAlert({
+        title: 'Sao lưu thành công',
+        message: summaryMessage,
+        buttons: [
+          { text: 'Đóng', onPress: hideAlert },
+          {
+            text: 'Tải về',
+            onPress: () => {
+              hideAlert();
+              downloadBackupFile(result);
+            },
+          },
+          {
+            text: 'Chia sẻ',
+            onPress: () => {
+              hideAlert();
+              shareBackupFile(result.filePath, result.fileName);
+            },
+          },
+        ],
+      });
 
       return result;
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể sao lưu dữ liệu: ' + error.message);
+      showAlert({
+        title: 'Lỗi',
+        message: 'Không thể sao lưu dữ liệu: ' + error.message,
+        buttons: [{ text: 'OK', onPress: hideAlert }],
+      });
       throw error;
     }
   };
@@ -177,12 +204,17 @@ export default function SettingsScreen() {
     try {
       const summary = await importEncryptedBackup(file.path);
       await loadSettings();
-      Alert.alert(
-        'Khôi phục thành công',
-        `Đã nhập dữ liệu từ ${file.name}\n\n• ${summary.buyers} người mua\n• ${summary.transactions} giao dịch\n• ${summary.weighings} lần cân`,
-      );
+      showAlert({
+        title: 'Khôi phục thành công',
+        message: `Đã nhập dữ liệu từ ${file.name}\n\n• ${summary.buyers} người mua\n• ${summary.transactions} giao dịch\n• ${summary.weighings} lần cân`,
+        buttons: [{ text: 'OK', onPress: hideAlert }],
+      });
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể nhập dữ liệu: ' + error.message);
+      showAlert({
+        title: 'Lỗi',
+        message: 'Không thể nhập dữ liệu: ' + error.message,
+        buttons: [{ text: 'OK', onPress: hideAlert }],
+      });
     }
   };
 
@@ -190,24 +222,35 @@ export default function SettingsScreen() {
     try {
       const backups = await listAvailableBackups();
       if (!backups.length) {
-        Alert.alert(
-          'Chưa có bản sao lưu',
-          `Hãy xuất dữ liệu trước. File sao lưu sẽ được tạo trong thư mục:\n${BACKUP_DIRECTORY}`,
-        );
+        showAlert({
+          title: 'Chưa có bản sao lưu',
+          message: `Hãy xuất dữ liệu trước. File sao lưu sẽ được tạo trong thư mục:\n${BACKUP_DIRECTORY}`,
+          buttons: [{ text: 'OK', onPress: hideAlert }],
+        });
         return;
       }
 
       const latest = backups[0];
-      Alert.alert(
-        'Nhập dữ liệu',
-        `Sử dụng file: ${latest.name}?\n\nVị trí: ${latest.path}`,
-        [
-          { text: 'Hủy', style: 'cancel' },
-          { text: 'Nhập', onPress: () => restoreFromBackup(latest) },
+      showAlert({
+        title: 'Nhập dữ liệu',
+        message: `Sử dụng file: ${latest.name}?\n\nVị trí: ${latest.path}`,
+        buttons: [
+          { text: 'Hủy', onPress: hideAlert },
+          {
+            text: 'Nhập',
+            onPress: () => {
+              hideAlert();
+              restoreFromBackup(latest);
+            },
+          },
         ],
-      );
+      });
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể đọc thư mục sao lưu: ' + error.message);
+      showAlert({
+        title: 'Lỗi',
+        message: 'Không thể đọc thư mục sao lưu: ' + error.message,
+        buttons: [{ text: 'OK', onPress: hideAlert }],
+      });
     }
   };
 
@@ -233,40 +276,64 @@ export default function SettingsScreen() {
       if (error?.message?.includes('cancelled')) {
         return;
       }
-      Alert.alert('Lỗi', 'Không thể chọn file: ' + error.message);
+      showAlert({
+        title: 'Lỗi',
+        message: 'Không thể chọn file: ' + error.message,
+        buttons: [{ text: 'OK', onPress: hideAlert }],
+      });
     }
   };
 
   const handleImportData = () => {
-    Alert.alert('Nhập dữ liệu', 'Chọn nguồn sao lưu', [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Chọn file...', onPress: pickBackupFromDevice },
-      { text: 'Dùng bản mới nhất', onPress: importLatestBackup },
-    ]);
+    showAlert({
+      title: 'Nhập dữ liệu',
+      message: 'Chọn nguồn sao lưu',
+      buttons: [
+        { text: 'Hủy', onPress: hideAlert },
+        {
+          text: 'Chọn file...',
+          onPress: () => {
+            hideAlert();
+            pickBackupFromDevice();
+          },
+        },
+        {
+          text: 'Dùng bản mới nhất',
+          onPress: () => {
+            hideAlert();
+            importLatestBackup();
+          },
+        },
+      ],
+    });
   };
 
   const handleMonthlyReport = () => {
     navigation.navigate('Statistics');
-    Alert.alert(
-      'Báo cáo tháng',
-      'Đã chuyển đến màn hình Thống kê để xem báo cáo chi tiết.',
-    );
+    showAlert({
+      title: 'Báo cáo tháng',
+      message: 'Đã chuyển đến màn hình Thống kê để xem báo cáo chi tiết.',
+      buttons: [{ text: 'OK', onPress: hideAlert }],
+    });
   };
 
   const handleYearlyReport = () => {
     navigation.navigate('Statistics');
-    Alert.alert(
-      'Báo cáo năm',
-      'Đã chuyển đến màn hình Thống kê. Bạn có thể chọn năm để xem báo cáo.',
-    );
+    showAlert({
+      title: 'Báo cáo năm',
+      message:
+        'Đã chuyển đến màn hình Thống kê. Bạn có thể chọn năm để xem báo cáo.',
+      buttons: [{ text: 'OK', onPress: hideAlert }],
+    });
   };
 
   const handleReminders = () => {
-    Alert.alert(
-      'Nhắc nhở',
-      'Tính năng nhắc nhở sẽ giúp bạn:\n• Nhắc thu tiền\n• Nhắc cân lúa\n• Nhắc kiểm tra tồn kho\n\nTính năng này đang được phát triển.',
-      [{ text: 'OK' }],
-    );
+    showAlert({
+      title: 'Nhắc nhở',
+      message:
+        'Tính năng nhắc nhở sẽ giúp bạn:\n• Nhắc thu tiền\n• Nhắc cân lúa\n• Nhắc kiểm tra tồn kho\n\nTính năng này đang được phát triển.',
+      buttons: [{ text: 'OK', onPress: hideAlert }],
+    });
   };
 
   const handleSupport = async () => {
@@ -282,10 +349,11 @@ export default function SettingsScreen() {
     if (canOpen) {
       await Linking.openURL(url);
     } else {
-      Alert.alert(
-        'Lỗi',
-        'Không thể mở ứng dụng email. Vui lòng liên hệ: ' + email,
-      );
+      showAlert({
+        title: 'Lỗi',
+        message: 'Không thể mở ứng dụng email. Vui lòng liên hệ: ' + email,
+        buttons: [{ text: 'OK', onPress: hideAlert }],
+      });
     }
   };
 
@@ -301,43 +369,57 @@ export default function SettingsScreen() {
 
         if (result) {
           const summaryMessage = `• ${result.buyers} người mua\n• ${result.transactions} giao dịch\n• ${result.weighings} lần cân\n\nFile mã hoá đã được lưu tại:\n${result.filePath}\n\nThư mục sao lưu: ${BACKUP_DIRECTORY}`;
-          Alert.alert('Tự động sao lưu đã bật', summaryMessage, [
-            { text: 'Đóng', style: 'cancel' },
-            {
-              text: 'Tải về',
-              onPress: () => downloadBackupFile(result),
-            },
-            {
-              text: 'Chia sẻ',
-              onPress: () => shareBackupFile(result.filePath, result.fileName),
-            },
-          ]);
+          showAlert({
+            title: 'Tự động sao lưu đã bật',
+            message: summaryMessage,
+            buttons: [
+              { text: 'Đóng', onPress: hideAlert },
+              {
+                text: 'Tải về',
+                onPress: () => {
+                  hideAlert();
+                  downloadBackupFile(result);
+                },
+              },
+              {
+                text: 'Chia sẻ',
+                onPress: () => {
+                  hideAlert();
+                  shareBackupFile(result.filePath, result.fileName);
+                },
+              },
+            ],
+          });
         } else {
-          Alert.alert(
-            'Tự động sao lưu đã bật',
-            'Bản sao lưu đầu tiên sẽ được tạo ngay khi đủ điều kiện.',
-          );
+          showAlert({
+            title: 'Tự động sao lưu đã bật',
+            message: 'Bản sao lưu đầu tiên sẽ được tạo ngay khi đủ điều kiện.',
+            buttons: [{ text: 'OK', onPress: hideAlert }],
+          });
         }
       } catch (error) {
         setAutoBackup(false);
         await saveSettings('autoBackup', false);
         stopAutoBackupScheduler();
-        Alert.alert(
-          'Lỗi',
-          'Không thể bật tự động sao lưu. Vui lòng thử lại: ' + error.message,
-        );
+        showAlert({
+          title: 'Lỗi',
+          message:
+            'Không thể bật tự động sao lưu. Vui lòng thử lại: ' + error.message,
+          buttons: [{ text: 'OK', onPress: hideAlert }],
+        });
       }
     } else {
       stopAutoBackupScheduler();
-      Alert.alert(
-        'Tự động sao lưu đã tắt',
-        'Dữ liệu sẽ không được sao lưu tự động nữa.',
-      );
+      showAlert({
+        title: 'Tự động sao lưu đã tắt',
+        message: 'Dữ liệu sẽ không được sao lưu tự động nữa.',
+        buttons: [{ text: 'OK', onPress: hideAlert }],
+      });
     }
   };
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
       <View className="bg-emerald-500 pt-12 pb-6 px-5 rounded-b-3xl">
         <Text className="text-3xl font-bold text-white mb-2">⚙️ Cài đặt</Text>
         <Text className="text-emerald-100">Quản lý ứng dụng</Text>
@@ -575,6 +657,13 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={hideAlert}
+      />
     </View>
   );
 }

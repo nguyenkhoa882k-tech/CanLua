@@ -78,21 +78,54 @@ const collectAppData = async () => {
   }
 
   // Get app settings from SQLite
-  const settingsResult = await executeSql(
-    'SELECT * FROM app_settings WHERE key = ?',
-    ['settings'],
-  ).catch(() => ({ rows: { length: 0 } }));
-
   let settings = {};
-  if (settingsResult.rows.length > 0) {
-    settings = JSON.parse(settingsResult.rows.item(0).value);
+  try {
+    const settingsResult = await executeSql(
+      'SELECT * FROM app_settings WHERE key = ?',
+      ['app_settings'],
+    );
+    if (settingsResult.rows.length > 0) {
+      settings = JSON.parse(settingsResult.rows.item(0).value);
+    }
+  } catch (error) {
+    console.log('No app_settings found, using defaults');
   }
 
+  // Get ALL app_settings (sellers and weighing data)
   const sellers = {};
   const weighings = [];
 
-  // If you have sellers/weighings tables, add them here
-  // For now, keeping empty as they weren't in the original schema
+  try {
+    const allSettingsResult = await executeSql('SELECT * FROM app_settings');
+
+    for (let i = 0; i < allSettingsResult.rows.length; i++) {
+      const row = allSettingsResult.rows.item(i);
+      const key = row.key;
+
+      // Collect sellers data
+      if (key.startsWith('sellers_')) {
+        try {
+          sellers[key] = JSON.parse(row.value);
+        } catch (e) {
+          console.log('Error parsing seller key:', key, e);
+        }
+      }
+
+      // Collect weighing data
+      if (key.startsWith('weighing_')) {
+        try {
+          weighings.push({
+            key: key,
+            data: JSON.parse(row.value),
+          });
+        } catch (e) {
+          console.log('Error parsing weighing key:', key, e);
+        }
+      }
+    }
+  } catch (error) {
+    console.log('Error fetching app_settings:', error);
+  }
 
   return { buyers, transactions, settings, sellers, weighings };
 };
@@ -196,10 +229,15 @@ export const importEncryptedBackup = async filePath => {
   const buyers = data.buyers || [];
   const transactions = data.transactions || [];
   const settings = data.settings || {};
+  const sellers = data.sellers || {};
+  const weighings = data.weighings || [];
 
   // Clear existing data
   await executeSql('DELETE FROM transactions');
   await executeSql('DELETE FROM buyers');
+  // Don't delete all app_settings, only the ones we're restoring
+  await executeSql('DELETE FROM app_settings WHERE key LIKE ?', ['sellers_%']);
+  await executeSql('DELETE FROM app_settings WHERE key LIKE ?', ['weighing_%']);
 
   // Import buyers
   for (const buyer of buyers) {
@@ -244,6 +282,22 @@ export const importEncryptedBackup = async filePath => {
     ).catch(() => {});
   }
 
+  // Import sellers data
+  for (const [key, value] of Object.entries(sellers)) {
+    await executeSql(
+      'INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)',
+      [key, JSON.stringify(value)],
+    ).catch(() => {});
+  }
+
+  // Import weighing data
+  for (const weighing of weighings) {
+    await executeSql(
+      'INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)',
+      [weighing.key, JSON.stringify(weighing.data)],
+    ).catch(() => {});
+  }
+
   // Save last backup path
   await executeSql(
     'INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)',
@@ -253,7 +307,7 @@ export const importEncryptedBackup = async filePath => {
   return {
     buyers: buyers.length,
     transactions: transactions.length,
-    weighings: 0,
+    weighings: weighings.length,
     filePath,
   };
 };

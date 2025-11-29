@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  Alert,
   Modal,
   Animated,
   StatusBar,
@@ -18,9 +17,11 @@ import {
   deleteBuyer,
   updateBuyer,
 } from '../services/buyers';
-import { getSettings } from '../services/settings';
+import { getSettings, getSettingValue } from '../services/settings';
 import BannerAd from '../components/BannerAd';
 import SimpleDatePicker from '../components/SimpleDatePicker';
+import CustomAlert from '../components/CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { formatWeight } from '../utils/numberUtils';
 
@@ -40,6 +41,7 @@ export default function BuyerList() {
   const navigation = useNavigation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const { alertConfig, showAlert, hideAlert } = useCustomAlert();
 
   const loadBuyers = async () => {
     const data = await listBuyers();
@@ -48,15 +50,57 @@ export default function BuyerList() {
     const settings = await getSettings();
     const digitDivisor = settings && settings.fourDigitInput ? 100 : 10;
 
-    // Calculate totals for each buyer
-    // Note: Seller/weighing data is temporarily disabled until migrated to SQLite
-    const buyersWithTotals = data.map(buyer => ({
-      ...buyer,
-      totals: buyer.totals || {
-        weightKg: 0,
-        weighCount: 0,
-      },
-    }));
+    // Calculate totals for each buyer from weighing data
+    const buyersWithTotals = await Promise.all(
+      data.map(async buyer => {
+        const sellersData =
+          (await getSettingValue(`sellers_${buyer.id}`)) || [];
+        let totalKg = 0;
+        let totalBags = 0;
+
+        // Calculate from all sellers' weighing data
+        for (const seller of sellersData) {
+          const weighKey = `weighing_${buyer.id}_${seller.id}`;
+          const weighData = await getSettingValue(weighKey);
+
+          if (weighData && weighData.tables) {
+            const tables = weighData.tables || [];
+
+            for (const table of tables) {
+              const tableWeight = table.rows.reduce((rowSum, row) => {
+                return (
+                  rowSum +
+                  Object.values(row).reduce(
+                    (cellSum, val) =>
+                      cellSum + (Number(val) || 0) / digitDivisor,
+                    0,
+                  )
+                );
+              }, 0);
+
+              totalKg += tableWeight;
+
+              // Count filled cells as bags
+              for (const row of table.rows) {
+                if (row.a && Number(row.a) > 0) totalBags++;
+                if (row.b && Number(row.b) > 0) totalBags++;
+                if (row.c && Number(row.c) > 0) totalBags++;
+                if (row.d && Number(row.d) > 0) totalBags++;
+                if (row.e && Number(row.e) > 0) totalBags++;
+              }
+            }
+          }
+        }
+
+        return {
+          ...buyer,
+          totals: {
+            weightKg: Math.round(totalKg * 10) / 10,
+            weighCount: totalBags,
+          },
+        };
+      }),
+    );
 
     setBuyers(buyersWithTotals);
     setFilteredBuyers(buyersWithTotals);
@@ -67,6 +111,7 @@ export default function BuyerList() {
 
   useEffect(() => {
     loadBuyers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Reload buyers when screen focuses (after confirming weighing)
@@ -168,10 +213,7 @@ export default function BuyerList() {
 
   const onSave = async () => {
     if (!name.trim())
-      return Alert.alert(
-        'Thiếu thông tin',
-        'Vui lòng nhập tên chủ nhóm/ghe/xe',
-      );
+      return showAlert('Thiếu thông tin', 'Vui lòng nhập tên chủ nhóm/ghe/xe');
 
     if (editingBuyer) {
       await updateBuyer({
@@ -188,7 +230,7 @@ export default function BuyerList() {
   };
 
   const onDelete = async id => {
-    Alert.alert('Xoá người mua', 'Bạn có chắc muốn xoá?', [
+    showAlert('Xoá người mua', 'Bạn có chắc muốn xoá?', [
       { text: 'Huỷ', style: 'cancel' },
       {
         text: 'Xoá',
@@ -202,7 +244,7 @@ export default function BuyerList() {
   };
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
       <StatusBar barStyle="light-content" backgroundColor="#10b981" />
 
       {/* Header với gradient */}
@@ -604,6 +646,15 @@ export default function BuyerList() {
           </View>
         </View>
       </Modal>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={hideAlert}
+      />
     </View>
   );
 }

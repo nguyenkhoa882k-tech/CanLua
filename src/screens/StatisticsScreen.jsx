@@ -10,7 +10,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { listBuyers } from '../services/buyers';
-import { getSettings } from '../services/settings';
+import { getSettings, getSettingValue } from '../services/settings';
 import { getTransactionStats } from '../services/transactions';
 import BannerAd from '../components/BannerAd';
 import { useInterstitialAd } from '../components/InterstitialAd';
@@ -32,32 +32,82 @@ export default function StatisticsScreen() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear]);
 
   // Reload data when screen focuses
   useFocusEffect(
     React.useCallback(() => {
       loadData();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedYear]),
   );
 
   const loadData = async () => {
     const buyersData = await listBuyers();
 
-    // Buyers already have totals from database
-    // Seller/weighing data temporarily disabled until migrated to SQLite
-    const buyersWithTotals = buyersData.map(buyer => ({
-      ...buyer,
-      totals: buyer.totals || {
-        weightKg: 0,
-        bags: 0,
-      },
-    }));
+    // Get settings for correct divisor
+    const settings = await getSettings();
+    const digitDivisor = settings && settings.fourDigitInput ? 100 : 10;
+
+    // Calculate totals for each buyer from weighing data
+    const buyersWithTotals = await Promise.all(
+      buyersData.map(async buyer => {
+        const sellersData =
+          (await getSettingValue(`sellers_${buyer.id}`)) || [];
+        let totalKg = 0;
+        let totalBags = 0;
+
+        for (const seller of sellersData) {
+          const weighKey = `weighing_${buyer.id}_${seller.id}`;
+          const weighData = await getSettingValue(weighKey);
+
+          if (weighData && weighData.tables) {
+            const tables = weighData.tables || [];
+
+            for (const table of tables) {
+              const tableWeight = table.rows.reduce((rowSum, row) => {
+                return (
+                  rowSum +
+                  Object.values(row).reduce(
+                    (cellSum, val) =>
+                      cellSum + (Number(val) || 0) / digitDivisor,
+                    0,
+                  )
+                );
+              }, 0);
+
+              totalKg += tableWeight;
+
+              for (const row of table.rows) {
+                if (row.a && Number(row.a) > 0) totalBags++;
+                if (row.b && Number(row.b) > 0) totalBags++;
+                if (row.c && Number(row.c) > 0) totalBags++;
+                if (row.d && Number(row.d) > 0) totalBags++;
+                if (row.e && Number(row.e) > 0) totalBags++;
+              }
+            }
+          }
+        }
+
+        return {
+          ...buyer,
+          totals: {
+            weightKg: Math.round(totalKg * 10) / 10,
+            bags: totalBags,
+          },
+        };
+      }),
+    );
 
     setBuyers(buyersWithTotals);
 
     // Get monthly stats
-    const monthly = await getMonthlyStats(selectedYear);
+    const monthly = await getMonthlyStats(
+      selectedYear,
+      buyersData,
+      digitDivisor,
+    );
     setMonthlyData(monthly);
 
     // Get transaction stats
@@ -65,12 +115,64 @@ export default function StatisticsScreen() {
     setTransactionStats(txStats);
   };
 
-  const getMonthlyStats = async year => {
-    // Temporarily return empty data until weighing is migrated to SQLite
+  const getMonthlyStats = async (year, buyersData, digitDivisor) => {
+    // Initialize data for 12 months
     const data = Array(12)
       .fill(0)
       .map((_, i) => ({ month: i + 1, kg: 0, bags: 0 }));
-    return data;
+
+    // Calculate from all buyers
+    for (const buyer of buyersData) {
+      const sellersData = (await getSettingValue(`sellers_${buyer.id}`)) || [];
+
+      for (const seller of sellersData) {
+        const weighKey = `weighing_${buyer.id}_${seller.id}`;
+        const weighData = await getSettingValue(weighKey);
+
+        if (weighData && weighData.tables) {
+          const tables = weighData.tables || [];
+
+          for (const table of tables) {
+            // Get month from table creation date (if exists) or use current month
+            const tableDate = weighData.updatedAt
+              ? new Date(weighData.updatedAt)
+              : new Date();
+            const tableYear = tableDate.getFullYear();
+            const tableMonth = tableDate.getMonth(); // 0-11
+
+            // Only count if it's the selected year
+            if (tableYear === year) {
+              const tableWeight = table.rows.reduce((rowSum, row) => {
+                return (
+                  rowSum +
+                  Object.values(row).reduce(
+                    (cellSum, val) =>
+                      cellSum + (Number(val) || 0) / digitDivisor,
+                    0,
+                  )
+                );
+              }, 0);
+
+              data[tableMonth].kg += tableWeight;
+
+              for (const row of table.rows) {
+                if (row.a && Number(row.a) > 0) data[tableMonth].bags++;
+                if (row.b && Number(row.b) > 0) data[tableMonth].bags++;
+                if (row.c && Number(row.c) > 0) data[tableMonth].bags++;
+                if (row.d && Number(row.d) > 0) data[tableMonth].bags++;
+                if (row.e && Number(row.e) > 0) data[tableMonth].bags++;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Round kg values
+    return data.map(d => ({
+      ...d,
+      kg: Math.round(d.kg * 10) / 10,
+    }));
   };
 
   const totalKg = monthlyData.reduce((sum, m) => sum + m.kg, 0);
@@ -88,7 +190,7 @@ export default function StatisticsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
       <View className="bg-emerald-500 pt-12 pb-6 px-5 rounded-b-3xl">
         <Text className="text-3xl font-bold text-white mb-2">📊 Thống kê</Text>
         <Text className="text-emerald-100">Tổng quan hoạt động</Text>

@@ -30,18 +30,59 @@ $padding = [int]($baseSize * 0.12)
 $diameter = $baseSize - ($padding * 2)
 $graphics.FillEllipse($circleBrush, $padding, $padding, $diameter, $diameter)
 
-$fontSize = [int]($baseSize * 0.36)
-$font = New-Object Drawing.Font('Segoe UI Black', $fontSize, [Drawing.FontStyle]::Bold, [Drawing.GraphicsUnit]::Pixel)
-$stringFormat = New-Object Drawing.StringFormat
-$stringFormat.Alignment = [Drawing.StringAlignment]::Center
-$stringFormat.LineAlignment = [Drawing.StringAlignment]::Center
-$textBrush = New-Object Drawing.SolidBrush([Drawing.Color]::FromArgb(255, 18, 109, 80))
-$graphics.DrawString('CL', $font, $textBrush, (New-Object Drawing.RectangleF(0, 0, $baseSize, $baseSize)), $stringFormat)
+# Draw a scale/balance icon
+$pen = New-Object Drawing.Pen([Drawing.Color]::FromArgb(255, 18, 109, 80), [int]($baseSize * 0.04))
+$pen.StartCap = [Drawing.Drawing2D.LineCap]::Round
+$pen.EndCap = [Drawing.Drawing2D.LineCap]::Round
+
+$centerX = $baseSize / 2
+$centerY = $baseSize / 2
+
+# Draw base
+$baseY = $centerY + ($baseSize * 0.25)
+$baseWidth = $baseSize * 0.4
+$graphics.DrawLine($pen, $centerX - $baseWidth/2, $baseY, $centerX + $baseWidth/2, $baseY)
+
+# Draw vertical pole
+$poleTop = $centerY - ($baseSize * 0.2)
+$graphics.DrawLine($pen, $centerX, $baseY, $centerX, $poleTop)
+
+# Draw horizontal beam
+$beamWidth = $baseSize * 0.35
+$beamY = $poleTop + ($baseSize * 0.05)
+$graphics.DrawLine($pen, $centerX - $beamWidth/2, $beamY, $centerX + $beamWidth/2, $beamY)
+
+# Draw left pan
+$panWidth = $baseSize * 0.15
+$panHeight = $baseSize * 0.08
+$leftPanX = $centerX - $beamWidth/2
+$panY = $beamY + ($baseSize * 0.08)
+$graphics.DrawLine($pen, $leftPanX, $beamY, $leftPanX, $panY)
+$graphics.DrawArc($pen, $leftPanX - $panWidth/2, $panY - $panHeight/2, $panWidth, $panHeight, 0, -180)
+
+# Draw right pan  
+$rightPanX = $centerX + $beamWidth/2
+$graphics.DrawLine($pen, $rightPanX, $beamY, $rightPanX, $panY)
+$graphics.DrawArc($pen, $rightPanX - $panWidth/2, $panY - $panHeight/2, $panWidth, $panHeight, 0, -180)
+
+# Draw rice grain symbols on pans (small circles)
+$riceBrush = New-Object Drawing.SolidBrush([Drawing.Color]::FromArgb(200, 251, 191, 36))
+$riceSize = [int]($baseSize * 0.025)
+# Left pan rice
+$graphics.FillEllipse($riceBrush, $leftPanX - $riceSize, $panY - $riceSize/2, $riceSize*2, $riceSize*2)
+$graphics.FillEllipse($riceBrush, $leftPanX - $riceSize*2.5, $panY - $riceSize, $riceSize*1.5, $riceSize*1.5)
+$graphics.FillEllipse($riceBrush, $leftPanX + $riceSize*0.5, $panY - $riceSize, $riceSize*1.5, $riceSize*1.5)
+# Right pan rice
+$graphics.FillEllipse($riceBrush, $rightPanX - $riceSize, $panY - $riceSize/2, $riceSize*2, $riceSize*2)
+$graphics.FillEllipse($riceBrush, $rightPanX - $riceSize*2.5, $panY - $riceSize, $riceSize*1.5, $riceSize*1.5)
+$graphics.FillEllipse($riceBrush, $rightPanX + $riceSize*0.5, $panY - $riceSize, $riceSize*1.5, $riceSize*1.5)
+
+$pen.Dispose()
+$riceBrush.Dispose()
 
 $graphics.Dispose()
 $gradientBrush.Dispose()
 $circleBrush.Dispose()
-$textBrush.Dispose()
 $bitmap.Save($baseIconPath, [Drawing.Imaging.ImageFormat]::Png)
 $bitmap.Dispose()
 
