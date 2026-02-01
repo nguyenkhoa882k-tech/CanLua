@@ -11,7 +11,9 @@ import {
   Platform,
 } from 'react-native';
 import CustomAlert from '../components/CustomAlert';
+import BluetoothModal from '../components/BluetoothModal';
 import { useCustomAlert } from '../hooks/useCustomAlert';
+import { useBluetoothStore } from '../stores/useBluetoothStore';
 import { getSettings, updateSetting } from '../services/settings';
 import { listBuyers } from '../services/buyers';
 import { listTransactions } from '../services/transactions';
@@ -43,6 +45,13 @@ export default function SettingsScreen() {
   const [autoBackup, setAutoBackup] = useState(false);
   const [fourDigitInput, setFourDigitInput] = useState(false);
   const [lastAutoBackupAt, setLastAutoBackupAt] = useState(null);
+  const [bluetoothModalVisible, setBluetoothModalVisible] = useState(false);
+  const {
+    isEnabled: bluetoothEnabled,
+    setEnabled: setBluetoothEnabled,
+    isConnected,
+    connectedDevice,
+  } = useBluetoothStore();
   const [dataStats, setDataStats] = useState({
     buyers: 0,
     transactions: 0,
@@ -84,11 +93,12 @@ export default function SettingsScreen() {
     const settings = await getSettings();
     setAutoBackup(settings.autoBackup ?? false);
     setFourDigitInput(settings.fourDigitInput ?? false);
+    setBluetoothEnabled(settings.bluetoothEnabled ?? false);
 
     // Load data statistics
     await loadDataStats();
     await refreshLastBackupTime();
-  }, [loadDataStats, refreshLastBackupTime]);
+  }, [loadDataStats, refreshLastBackupTime, setBluetoothEnabled]);
 
   useEffect(() => {
     loadSettings();
@@ -502,6 +512,43 @@ export default function SettingsScreen() {
               thumbColor={fourDigitInput ? '#fff' : '#f3f4f6'}
             />
           </View>
+
+          <View className="flex-row items-center justify-between py-3 border-t border-gray-100">
+            <View className="flex-1">
+              <Text className="text-gray-800 font-semibold">
+                Kết nối cân Bluetooth
+              </Text>
+              <Text className="text-gray-500 text-xs">
+                {isConnected
+                  ? `Đã kết nối: ${connectedDevice?.name || 'Thiết bị'}`
+                  : 'Kết nối với cân điện tử'}
+              </Text>
+            </View>
+            <View className="flex-row items-center" style={{ gap: 8 }}>
+              {bluetoothEnabled && (
+                <TouchableOpacity
+                  onPress={() => setBluetoothModalVisible(true)}
+                  className="bg-blue-500 px-3 py-2 rounded-lg"
+                >
+                  <Text className="text-white text-xs font-bold">
+                    {isConnected ? '📡' : '🔍'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <Switch
+                value={bluetoothEnabled}
+                onValueChange={val => {
+                  setBluetoothEnabled(val);
+                  saveSettings('bluetoothEnabled', val);
+                  if (val) {
+                    setBluetoothModalVisible(true);
+                  }
+                }}
+                trackColor={{ false: '#d1d5db', true: '#10b981' }}
+                thumbColor={bluetoothEnabled ? '#fff' : '#f3f4f6'}
+              />
+            </View>
+          </View>
         </View>
 
         {/* Data Management */}
@@ -663,6 +710,10 @@ export default function SettingsScreen() {
         message={alertConfig.message}
         buttons={alertConfig.buttons}
         onClose={hideAlert}
+      />
+      <BluetoothModal
+        visible={bluetoothModalVisible}
+        onClose={() => setBluetoothModalVisible(false)}
       />
     </View>
   );

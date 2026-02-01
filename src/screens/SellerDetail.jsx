@@ -38,6 +38,7 @@ import {
   moneyToVietnamese,
   sum,
 } from '../utils/numberUtils';
+import { useBluetoothStore } from '../stores/useBluetoothStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -46,6 +47,8 @@ export default function SellerDetail() {
   const navigation = useNavigation();
   const { buyerId, seller } = params || {};
   const { alertConfig, showAlert, hideAlert } = useCustomAlert();
+  const { currentWeight, isConnected: bluetoothConnected } =
+    useBluetoothStore();
 
   const [name] = useState(seller?.name || '');
   const [unitPrice, setUnitPrice] = useState(
@@ -475,6 +478,91 @@ export default function SellerDetail() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Bluetooth Weight Display */}
+        {bluetoothConnected && (
+          <View className="mx-5 mt-4 bg-blue-50 rounded-3xl p-5 shadow-lg border-2 border-blue-300">
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center">
+                <Text className="text-2xl mr-2">⚖️</Text>
+                <Text className="text-lg font-bold text-blue-800">
+                  Cân Bluetooth
+                </Text>
+              </View>
+              <View className="bg-green-500 px-3 py-1 rounded-full">
+                <Text className="text-white text-xs font-bold">
+                  📡 Đã kết nối
+                </Text>
+              </View>
+            </View>
+
+            <View className="bg-white rounded-2xl p-4 mb-3">
+              <Text className="text-gray-600 text-sm mb-2">
+                Khối lượng đo được
+              </Text>
+              <Text className="text-4xl font-bold text-blue-700 text-center">
+                {currentWeight ? `${currentWeight.toFixed(1)} kg` : '-- kg'}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => {
+                if (!currentWeight || currentWeight <= 0) {
+                  showAlert({
+                    title: 'Chưa có dữ liệu',
+                    message: 'Vui lòng đợi cân đo khối lượng',
+                    buttons: [{ text: 'OK', onPress: hideAlert }],
+                  });
+                  return;
+                }
+
+                if (locked) {
+                  // Find current cell and add weight
+                  const current = findCurrentCell();
+                  if (current) {
+                    // Convert kg to input format (multiply by divisor)
+                    const weightValue = Math.round(
+                      currentWeight * digitDivisor,
+                    );
+                    onChangeCell(
+                      current.ti,
+                      current.ri,
+                      current.col,
+                      String(weightValue),
+                    );
+
+                    showAlert({
+                      title: 'Đã thêm',
+                      message: `Đã thêm ${currentWeight.toFixed(
+                        1,
+                      )} kg vào bảng`,
+                      buttons: [{ text: 'OK', onPress: hideAlert }],
+                    });
+                  } else {
+                    showAlert({
+                      title: 'Bảng đã đầy',
+                      message: 'Không còn ô trống để thêm khối lượng',
+                      buttons: [{ text: 'OK', onPress: hideAlert }],
+                    });
+                  }
+                } else {
+                  showAlert({
+                    title: 'Chưa khóa bảng',
+                    message:
+                      'Vui lòng khóa bảng trước khi thêm khối lượng từ cân',
+                    buttons: [{ text: 'OK', onPress: hideAlert }],
+                  });
+                }
+              }}
+              className="bg-blue-500 rounded-2xl py-4 items-center"
+              disabled={!currentWeight || currentWeight <= 0}
+            >
+              <Text className="font-bold text-base text-white">
+                ✅ Xác nhận và thêm vào bảng
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Summary Card */}
         <View className="mx-5 mt-4 bg-white rounded-3xl p-5 shadow-lg">
           <Text className="text-xl font-bold text-gray-800 mb-4">
