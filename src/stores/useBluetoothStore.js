@@ -6,7 +6,7 @@ export const useBluetoothStore = create((set, get) => ({
   isEnabled: false,
   isScanning: false,
   isConnected: false,
-  devices: [],
+  devices: [], // Ensure this is always an array
   connectedDevice: null,
   currentWeight: null,
   error: null,
@@ -15,13 +15,23 @@ export const useBluetoothStore = create((set, get) => ({
   setEnabled: enabled => set({ isEnabled: enabled }),
 
   scanDevices: async () => {
-    set({ isScanning: true, error: null });
+    set({ isScanning: true, error: null, devices: [] });
     try {
       const devices = await BluetoothService.scanDevices(5000);
-      set({ devices, isScanning: false });
-      return devices;
+
+      // Ensure devices is an array
+      const deviceArray = Array.isArray(devices) ? devices : [];
+
+      console.log('📱 Store received devices:', deviceArray);
+      set({ devices: deviceArray, isScanning: false });
+      return deviceArray;
     } catch (error) {
-      set({ error: error.message, isScanning: false });
+      console.error('❌ Store scan error:', error);
+      set({
+        error: error.message || 'Lỗi không xác định khi quét Bluetooth',
+        isScanning: false,
+        devices: [],
+      });
       throw error;
     }
   },

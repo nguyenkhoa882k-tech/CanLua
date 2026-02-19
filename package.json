@@ -8,7 +8,7 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "postinstall": "node scripts/patch-sqlite.js"
+    "postinstall": "node scripts/patch-sqlite.js && node scripts/patch-ble-manager.js"
   },
   "dependencies": {
     "@dr.pogodin/react-native-fs": "^2.31.2",
@@ -21,7 +21,7 @@
     "nativewind": "2.0.11",
     "react": "19.1.1",
     "react-native": "0.82.1",
-    "react-native-ble-manager": "^12.4.4",
+    "react-native-ble-manager": "^11.5.3",
     "react-native-chart-kit": "^6.12.0",
     "react-native-gesture-handler": "^2.29.1",
     "react-native-google-mobile-ads": "^16.0.0",

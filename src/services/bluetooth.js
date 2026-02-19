@@ -147,23 +147,55 @@ class BluetoothService {
 
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {
-        throw new Error('Bluetooth permissions not granted');
+        throw new Error(
+          'Chưa cấp quyền Bluetooth. Vui lòng cấp quyền trong Cài đặt.',
+        );
       }
 
-      // Clear previous scan results
-      await BleManager.scan([], timeout / 1000, true);
+      console.log('🔍 Starting Bluetooth scan...');
 
-      // Wait for scan to complete
-      await new Promise(resolve => setTimeout(resolve, timeout));
+      // Store discovered devices
+      const discoveredDevices = new Map();
 
-      // Get discovered devices
-      const devices = await BleManager.getDiscoveredPeripherals();
+      // Setup temporary listener for discovered devices
+      const discoverListener = bleManagerEmitter.addListener(
+        'BleManagerDiscoverPeripheral',
+        peripheral => {
+          if (peripheral && peripheral.name) {
+            console.log('📱 Discovered:', peripheral.name);
+            discoveredDevices.set(peripheral.id, {
+              id: peripheral.id,
+              name: peripheral.name,
+              rssi: peripheral.rssi,
+            });
+          }
+        },
+      );
 
-      // Filter out devices without names (usually not useful)
-      return devices.filter(device => device.name && device.name.trim() !== '');
+      try {
+        // Start scanning with proper parameters
+        // BleManager.scan expects: (serviceUUIDs, seconds, allowDuplicates, options)
+        await BleManager.scan([], timeout / 1000);
+
+        // Wait for scan to complete
+        await new Promise(resolve => setTimeout(resolve, timeout));
+
+        // Stop scanning
+        await BleManager.stopScan();
+        console.log('🛑 Scan stopped');
+      } finally {
+        // Remove listener
+        discoverListener.remove();
+      }
+
+      // Convert Map to array
+      const devices = Array.from(discoveredDevices.values());
+      console.log('✅ Found devices:', devices.length);
+
+      return devices;
     } catch (error) {
-      console.error('Error scanning devices:', error);
-      throw error;
+      console.error('❌ Error scanning devices:', error);
+      throw new Error(`Lỗi quét Bluetooth: ${error.message}`);
     }
   }
 

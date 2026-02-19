@@ -35,9 +35,14 @@ export default function BluetoothModal({ visible, onClose }) {
     setLocalError(null);
     clearError();
     try {
-      await scanDevices();
+      console.log('🔍 Modal: Starting scan...');
+      const foundDevices = await scanDevices();
+      console.log('✅ Modal: Scan complete, found:', foundDevices?.length || 0);
     } catch (err) {
-      setLocalError(err.message);
+      console.error('❌ Modal: Scan error:', err);
+      const errorMessage =
+        err?.message || 'Lỗi không xác định khi quét Bluetooth';
+      setLocalError(errorMessage);
     }
   };
 
@@ -134,7 +139,7 @@ export default function BluetoothModal({ visible, onClose }) {
                   <ActivityIndicator size="large" color="#10b981" />
                   <Text className="text-gray-500 mt-2">Đang tìm kiếm...</Text>
                 </View>
-              ) : devices.length === 0 ? (
+              ) : Array.isArray(devices) && devices.length === 0 ? (
                 <View className="items-center py-10">
                   <Text className="text-6xl mb-2">📡</Text>
                   <Text className="text-gray-400">Chưa tìm thấy thiết bị</Text>
@@ -144,8 +149,8 @@ export default function BluetoothModal({ visible, onClose }) {
                 </View>
               ) : (
                 <FlatList
-                  data={devices}
-                  keyExtractor={item => item.id}
+                  data={Array.isArray(devices) ? devices : []}
+                  keyExtractor={item => item?.id || Math.random().toString()}
                   renderItem={({ item }) => (
                     <TouchableOpacity
                       onPress={() => handleConnect(item.id)}
