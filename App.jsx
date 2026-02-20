@@ -8,6 +8,9 @@ import { useEffect, useState } from 'react';
 import { initDatabase } from './src/services/database';
 import { migrateDataToSQLite } from './src/services/migration';
 import { bootstrapAutoBackupScheduler } from './src/services/autoBackup';
+import ErrorBoundary from './src/components/ErrorBoundary';
+import { useBluetoothStore } from './src/stores/useBluetoothStore';
+import logger from './src/utils/logger';
 import BuyerList from './src/screens/BuyerList.jsx';
 import BuyerDetail from './src/screens/BuyerDetail.jsx';
 import SellerDetail from './src/screens/SellerDetail.jsx';
@@ -18,6 +21,12 @@ import SettingsScreen from './src/screens/SettingsScreen.jsx';
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   const [dbInitialized, setDbInitialized] = useState(false);
+  const initAppStateListener = useBluetoothStore(
+    state => state.initAppStateListener,
+  );
+  const cleanupAppStateListener = useBluetoothStore(
+    state => state.cleanupAppStateListener,
+  );
 
   useEffect(() => {
     // Initialize database and migrate data when app starts
@@ -25,28 +34,28 @@ function App() {
       try {
         // First initialize the database
         await initDatabase();
-        console.log('Database initialized');
+        logger.log('Database initialized');
 
         // Then migrate existing data from AsyncStorage
         const migrationResult = await migrateDataToSQLite();
         if (migrationResult.success) {
           if (migrationResult.alreadyMigrated) {
-            console.log('Data already migrated');
+            logger.log('Data already migrated');
           } else {
-            console.log('Data migrated successfully:', migrationResult);
+            logger.log('Data migrated successfully:', migrationResult);
           }
         } else {
-          console.error('Migration failed:', migrationResult.error);
+          logger.error('Migration failed:', migrationResult.error);
         }
 
         setDbInitialized(true);
 
         // Start auto backup scheduler after database is ready
         bootstrapAutoBackupScheduler().catch(error => {
-          console.warn('Không thể khởi động bộ hẹn giờ sao lưu', error);
+          logger.warn('Không thể khởi động bộ hẹn giờ sao lưu', error);
         });
       } catch (error) {
-        console.error('Failed to initialize app:', error);
+        logger.error('Failed to initialize app:', error);
         // Still set to true to allow app to start even if init fails
         setDbInitialized(true);
       }
@@ -55,21 +64,31 @@ function App() {
     initializeApp();
   }, []);
 
+  // Initialize Bluetooth AppState listener for cleanup
+  useEffect(() => {
+    initAppStateListener();
+    return () => {
+      cleanupAppStateListener();
+    };
+  }, [initAppStateListener, cleanupAppStateListener]);
+
   // Show loading screen while database is initializing
   if (!dbInitialized) {
     return null;
   }
 
   return (
-    <SafeAreaProvider>
-      <LinearGradient
-        colors={['#f0fdf4', '#dcfce7', '#bbf7d0']}
-        style={styles.gradient}
-      >
-        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-        <AppNavigator />
-      </LinearGradient>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <LinearGradient
+          colors={['#f0fdf4', '#dcfce7', '#bbf7d0']}
+          style={styles.gradient}
+        >
+          <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+          <AppNavigator />
+        </LinearGradient>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 

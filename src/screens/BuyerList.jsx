@@ -109,9 +109,9 @@ export default function BuyerList() {
     slideAnim.setValue(0);
   };
 
+  // Load buyers on mount
   useEffect(() => {
     loadBuyers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Reload buyers when screen focuses (after confirming weighing)
@@ -248,18 +248,18 @@ export default function BuyerList() {
       <StatusBar barStyle="light-content" backgroundColor="#10b981" />
 
       {/* Header với gradient */}
-      <View className="bg-emerald-500 pt-6 pb-6 px-5 rounded-b-3xl shadow-lg">
-        <Text className="text-3xl font-bold text-white mb-2">🌾 Cân Lúa</Text>
-        <Text className="text-emerald-100 text-sm mb-4">
+      <View className="bg-emerald-500 pt-5 pb-4 px-4 rounded-b-2xl shadow-lg">
+        <Text className="text-2xl font-bold text-white mb-1">🌾 Cân Lúa</Text>
+        <Text className="text-emerald-100 text-xs mb-3">
           Quản lý mua bán lúa gạo
         </Text>
 
         {/* Search bar with filter */}
-        <View className="flex-row" style={{ gap: 8 }}>
-          <View className="flex-1 bg-white rounded-2xl flex-row items-center px-4 py-3 shadow">
-            <Text className="text-xl mr-2">🔍</Text>
+        <View className="flex-row" style={{ gap: 6 }}>
+          <View className="flex-1 bg-white rounded-xl flex-row items-center px-3 py-2 shadow">
+            <Text className="text-lg mr-2">🔍</Text>
             <TextInput
-              className="flex-1 text-base"
+              className="flex-1 text-sm"
               placeholder="Tìm theo tên hoặc SĐT..."
               placeholderTextColor="#9ca3af"
               value={search}
@@ -267,7 +267,7 @@ export default function BuyerList() {
             />
             {search ? (
               <TouchableOpacity onPress={() => setSearch('')}>
-                <Text className="text-gray-400 text-lg">✕</Text>
+                <Text className="text-gray-400 text-base">✕</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -275,19 +275,19 @@ export default function BuyerList() {
           {/* Filter Button */}
           <TouchableOpacity
             onPress={() => setFilterModalVisible(true)}
-            className={`bg-white rounded-2xl px-4 py-3 shadow items-center justify-center ${
+            className={`bg-white rounded-xl px-3 py-2 shadow items-center justify-center ${
               filterType !== 'all' ? 'border-2 border-blue-500' : ''
             }`}
           >
-            <Text className="text-xl">🔽</Text>
+            <Text className="text-lg">🔽</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Filter Indicator */}
       {filterType !== 'all' && (
-        <View className="mx-5 mt-3 bg-blue-100 rounded-xl p-3 flex-row items-center justify-between">
-          <Text className="text-blue-700 font-semibold">
+        <View className="mx-4 mt-2 bg-blue-100 rounded-lg p-2 flex-row items-center justify-between">
+          <Text className="text-blue-700 font-semibold text-xs">
             {filterType === 'year'
               ? `📅 Lọc theo năm: ${selectedYear}`
               : `🗓️ Từ ${fromDate.toLocaleDateString(
@@ -295,7 +295,7 @@ export default function BuyerList() {
                 )} đến ${toDate.toLocaleDateString('vi-VN')}`}
           </Text>
           <TouchableOpacity onPress={handleResetFilter}>
-            <Text className="text-blue-700 font-bold text-lg">✕</Text>
+            <Text className="text-blue-700 font-bold text-base">✕</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -305,7 +305,7 @@ export default function BuyerList() {
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>{filteredBuyers.length}</Text>
           <Text style={styles.statLabel}>
-            {filterType !== 'all' ? 'Kết quả' : 'Tổng số ghe'}
+            {filterType !== 'all' ? 'Kết quả' : 'Tổng ghe'}
           </Text>
         </View>
         <View style={styles.statCard}>
@@ -337,7 +337,7 @@ export default function BuyerList() {
       <FlatList
         data={filteredBuyers}
         keyExtractor={item => item.id}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80 }}
         renderItem={({ item, index }) => (
           <TouchableOpacity
             onPress={() =>
@@ -346,27 +346,27 @@ export default function BuyerList() {
             style={styles.buyerCard}
             activeOpacity={0.7}
           >
-            <View className="flex-row justify-between items-start mb-3">
+            <View className="flex-row justify-between items-start mb-2">
               <View className="flex-1">
                 <View className="flex-row items-center">
-                  <Text className="text-xl font-bold text-gray-800">
+                  <Text className="text-lg font-bold text-gray-800">
                     {item.name}
                   </Text>
                   {item.sellers?.some(s => s.confirmed) && (
-                    <View className="ml-2 bg-green-100 px-2 py-1 rounded-full">
+                    <View className="ml-2 bg-green-100 px-1.5 py-0.5 rounded-full">
                       <Text className="text-green-700 text-xs font-bold">
-                        ✅ Đã kết sổ
+                        ✅
                       </Text>
                     </View>
                   )}
                 </View>
-                <Text className="text-gray-500 text-sm">
+                <Text className="text-gray-500 text-xs">
                   📅 {new Date(item.createdAt).toLocaleDateString('vi-VN')}
                 </Text>
               </View>
               <TouchableOpacity
                 onPress={() => openModal(item)}
-                className="bg-blue-50 px-3 py-1.5 rounded-lg"
+                className="bg-blue-50 px-2 py-1 rounded-lg"
               >
                 <Text className="text-blue-600 text-xs font-semibold">
                   ✏️ Sửa
@@ -375,14 +375,14 @@ export default function BuyerList() {
             </View>
 
             <View style={styles.statsRow}>
-              <View className="flex-1 bg-emerald-50 rounded-xl p-3">
-                <Text className="text-emerald-700 font-bold text-base">
+              <View className="flex-1 bg-emerald-50 rounded-lg p-2">
+                <Text className="text-emerald-700 font-bold text-sm">
                   {formatWeight(item.totals?.weightKg || 0)} kg
                 </Text>
                 <Text className="text-emerald-600 text-xs">Tổng kg</Text>
               </View>
-              <View className="flex-1 bg-blue-50 rounded-xl p-3">
-                <Text className="text-blue-700 font-bold text-base">
+              <View className="flex-1 bg-blue-50 rounded-lg p-2">
+                <Text className="text-blue-700 font-bold text-sm">
                   {item.totals?.weighCount || 0}
                 </Text>
                 <Text className="text-blue-600 text-xs">Tổng bao</Text>
@@ -390,9 +390,9 @@ export default function BuyerList() {
             </View>
 
             {item.phone ? (
-              <View className="flex-row items-center bg-gray-50 rounded-lg px-3 py-2">
-                <Text className="text-base mr-2">📞</Text>
-                <Text className="text-gray-600 text-sm">{item.phone}</Text>
+              <View className="flex-row items-center bg-gray-50 rounded-lg px-2 py-1.5 mt-2">
+                <Text className="text-sm mr-1">📞</Text>
+                <Text className="text-gray-600 text-xs">{item.phone}</Text>
               </View>
             ) : null}
 
@@ -401,26 +401,26 @@ export default function BuyerList() {
                 onPress={() =>
                   navigation.navigate('BuyerDetail', { buyerId: item.id })
                 }
-                className="flex-1 bg-emerald-500 rounded-xl py-3 items-center"
+                className="flex-1 bg-emerald-500 rounded-lg py-2 items-center"
               >
-                <Text className="text-white font-semibold">Mở chi tiết →</Text>
+                <Text className="text-white font-semibold text-sm">
+                  Mở chi tiết →
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => onDelete(item.id)}
-                className="bg-red-50 px-4 rounded-xl items-center justify-center"
+                className="bg-red-50 px-3 rounded-lg items-center justify-center"
               >
-                <Text className="text-red-600 text-lg">🗑️</Text>
+                <Text className="text-red-600 text-base">🗑️</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          <View className="items-center mt-20">
-            <Text className="text-6xl mb-4">📦</Text>
-            <Text className="text-gray-400 text-base">
-              Chưa có người mua nào
-            </Text>
-            <Text className="text-gray-300 text-sm mt-1">
+          <View className="items-center mt-16">
+            <Text className="text-5xl mb-3">📦</Text>
+            <Text className="text-gray-400 text-sm">Chưa có người mua nào</Text>
+            <Text className="text-gray-300 text-xs mt-1">
               Nhấn nút + để thêm mới
             </Text>
           </View>
@@ -430,10 +430,10 @@ export default function BuyerList() {
       {/* FAB */}
       <TouchableOpacity
         onPress={() => openModal()}
-        className="absolute bottom-6 right-6 bg-emerald-500 w-16 h-16 rounded-full items-center justify-center shadow-2xl"
+        className="absolute bottom-5 right-5 bg-emerald-500 w-14 h-14 rounded-full items-center justify-center shadow-2xl"
         activeOpacity={0.8}
       >
-        <Text className="text-white text-3xl font-bold">+</Text>
+        <Text className="text-white text-2xl font-bold">+</Text>
       </TouchableOpacity>
 
       {/* Modal */}
@@ -662,15 +662,15 @@ export default function BuyerList() {
 const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    padding: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -678,20 +678,20 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#10b981',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#6b7280',
-    marginTop: 4,
+    marginTop: 2,
   },
   buyerCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -700,13 +700,13 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+    gap: 6,
+    marginBottom: 8,
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+    gap: 6,
+    marginTop: 8,
   },
   modalOverlay: {
     flex: 1,

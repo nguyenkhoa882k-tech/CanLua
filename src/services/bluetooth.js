@@ -5,6 +5,7 @@ import {
   Platform,
   PermissionsAndroid,
 } from 'react-native';
+import logger from '../utils/logger';
 
 const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
@@ -14,37 +15,44 @@ class BluetoothService {
     this.isInitialized = false;
     this.connectedDevice = null;
     this.listeners = [];
-    this.weightListeners = [];
+    this.weightListeners = new Set(); // Use Set instead of Array
   }
 
   async initialize() {
     if (this.isInitialized) return;
 
     try {
+      // Cleanup old listeners first
+      this.cleanup();
+
       await BleManager.start({ showAlert: false });
       this.isInitialized = true;
-      console.log('✅ Bluetooth initialized');
+
+      logger.log('✅ Bluetooth initialized');
 
       // Setup listeners
       this.setupListeners();
     } catch (error) {
-      console.error('❌ Bluetooth initialization failed:', error);
+      logger.error('❌ Bluetooth initialization failed:', error);
       throw error;
     }
   }
 
   setupListeners() {
+    // Clear existing listeners first
+    this.cleanup();
+
     // Listener for discovered devices
     this.listeners.push(
       bleManagerEmitter.addListener('BleManagerDiscoverPeripheral', device => {
-        console.log('📱 Discovered device:', device.name || device.id);
+        logger.log('📱 Discovered device:', device.name || device.id);
       }),
     );
 
     // Listener for connection
     this.listeners.push(
       bleManagerEmitter.addListener('BleManagerConnectPeripheral', device => {
-        console.log('✅ Connected to:', device.peripheral);
+        logger.log('✅ Connected to:', device.peripheral);
       }),
     );
 
@@ -53,7 +61,7 @@ class BluetoothService {
       bleManagerEmitter.addListener(
         'BleManagerDisconnectPeripheral',
         device => {
-          console.log('❌ Disconnected from:', device.peripheral);
+          logger.log('❌ Disconnected from:', device.peripheral);
           if (this.connectedDevice?.id === device.peripheral) {
             this.connectedDevice = null;
           }
@@ -66,7 +74,7 @@ class BluetoothService {
       bleManagerEmitter.addListener(
         'BleManagerDidUpdateValueForCharacteristic',
         data => {
-          console.log('📊 Received data:', data);
+          logger.log('📊 Received data:', data);
           this.handleWeightData(data);
         },
       ),
@@ -76,13 +84,18 @@ class BluetoothService {
   handleWeightData(data) {
     try {
       // Parse weight data from the scale
-      // This depends on your scale's protocol
       const weight = this.parseWeightFromData(data.value);
 
-      // Notify all weight listeners
-      this.weightListeners.forEach(listener => listener(weight));
+      // Notify all weight listeners using Set
+      this.weightListeners.forEach(listener => {
+        try {
+          listener(weight);
+        } catch (error) {
+          logger.error('Error in weight listener:', error);
+        }
+      });
     } catch (error) {
-      console.error('Error parsing weight data:', error);
+      logger.error('Error parsing weight data:', error);
     }
   }
 
@@ -107,7 +120,7 @@ class BluetoothService {
 
       return null;
     } catch (error) {
-      console.error('Error parsing weight:', error);
+      logger.error('Error parsing weight:', error);
       return null;
     }
   }
@@ -152,7 +165,7 @@ class BluetoothService {
         );
       }
 
-      console.log('🔍 Starting Bluetooth scan...');
+      logger.log('🔍 Starting Bluetooth scan...');
 
       // Store discovered devices
       const discoveredDevices = new Map();
@@ -161,11 +174,16 @@ class BluetoothService {
       const discoverListener = bleManagerEmitter.addListener(
         'BleManagerDiscoverPeripheral',
         peripheral => {
-          if (peripheral && peripheral.name) {
-            console.log('📱 Discovered:', peripheral.name);
+          if (peripheral && peripheral.id) {
+            logger.log(
+              '📱 Discovered:',
+              peripheral.name || peripheral.id,
+              peripheral,
+            );
             discoveredDevices.set(peripheral.id, {
               id: peripheral.id,
-              name: peripheral.name,
+              name:
+                peripheral.name || `Device ${peripheral.id.substring(0, 8)}`,
               rssi: peripheral.rssi,
             });
           }
@@ -182,7 +200,7 @@ class BluetoothService {
 
         // Stop scanning
         await BleManager.stopScan();
-        console.log('🛑 Scan stopped');
+        logger.log('🛑 Scan stopped');
       } finally {
         // Remove listener
         discoverListener.remove();
@@ -190,11 +208,11 @@ class BluetoothService {
 
       // Convert Map to array
       const devices = Array.from(discoveredDevices.values());
-      console.log('✅ Found devices:', devices.length);
+      logger.log('✅ Found devices:', devices.length, devices);
 
       return devices;
     } catch (error) {
-      console.error('❌ Error scanning devices:', error);
+      logger.error('❌ Error scanning devices:', error);
       throw new Error(`Lỗi quét Bluetooth: ${error.message}`);
     }
   }
@@ -211,10 +229,10 @@ class BluetoothService {
         info: deviceInfo,
       };
 
-      console.log('✅ Connected to device:', deviceId);
+      logger.log('✅ Connected to device:', deviceId);
       return true;
     } catch (error) {
-      console.error('Error connecting to device:', error);
+      logger.error('Error connecting to device:', error);
       throw error;
     }
   }
@@ -225,9 +243,9 @@ class BluetoothService {
     try {
       await BleManager.disconnect(this.connectedDevice.id);
       this.connectedDevice = null;
-      console.log('✅ Disconnected from device');
+      logger.log('✅ Disconnected from device');
     } catch (error) {
-      console.error('Error disconnecting:', error);
+      logger.error('Error disconnecting:', error);
       throw error;
     }
   }
@@ -241,11 +259,11 @@ class BluetoothService {
   }
 
   onWeightUpdate(callback) {
-    this.weightListeners.push(callback);
+    this.weightListeners.add(callback);
 
     // Return unsubscribe function
     return () => {
-      this.weightListeners = this.weightListeners.filter(cb => cb !== callback);
+      this.weightListeners.delete(callback);
     };
   }
 
@@ -260,9 +278,9 @@ class BluetoothService {
         serviceUUID,
         characteristicUUID,
       );
-      console.log('✅ Started notifications');
+      logger.log('✅ Started notifications');
     } catch (error) {
-      console.error('Error starting notifications:', error);
+      logger.error('Error starting notifications:', error);
       throw error;
     }
   }
@@ -270,7 +288,7 @@ class BluetoothService {
   cleanup() {
     this.listeners.forEach(listener => listener.remove());
     this.listeners = [];
-    this.weightListeners = [];
+    this.weightListeners.clear(); // Use clear() for Set
   }
 }
 

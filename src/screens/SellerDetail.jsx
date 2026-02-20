@@ -38,6 +38,12 @@ import {
   moneyToVietnamese,
   sum,
 } from '../utils/numberUtils';
+import {
+  safeNumber,
+  safeDivide,
+  calculateAmount,
+} from '../utils/safeCalculations';
+import logger from '../utils/logger';
 import { useBluetoothStore } from '../stores/useBluetoothStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -73,6 +79,32 @@ export default function SellerDetail() {
   const [maxDigits, setMaxDigits] = useState(3);
   const inputRefs = React.useRef({});
   const scrollViewRef = useRef(null);
+  const saveTimerRef = useRef(null); // Use ref for timer to prevent multiple timers
+
+  // Cleanup inputRefs when component unmounts
+  useEffect(() => {
+    return () => {
+      inputRefs.current = {};
+    };
+  }, []);
+
+  // Cleanup inputRefs when tables change (remove refs for deleted tables)
+  useEffect(() => {
+    const validKeys = new Set();
+    tables.forEach((t, ti) => {
+      t.rows.forEach((r, ri) => {
+        ['a', 'b', 'c', 'd', 'e'].forEach(key => {
+          validKeys.add(`${ti}-${ri}-${key}`);
+        });
+      });
+    });
+
+    Object.keys(inputRefs.current).forEach(key => {
+      if (!validKeys.has(key)) {
+        delete inputRefs.current[key];
+      }
+    });
+  }, [tables]);
 
   // Load saved data and settings
   useEffect(() => {
@@ -122,7 +154,7 @@ export default function SellerDetail() {
     }, []),
   );
 
-  // Auto-save with useCallback to prevent recreation
+  // Auto-save with useCallback to prevent recreation and use ref for timer
   const saveData = useCallback(async () => {
     const key = `weighing_${buyerId}_${seller?.id}`;
     await setSettingValue(key, {
@@ -161,10 +193,18 @@ export default function SellerDetail() {
     unitPrice,
   ]);
 
-  // Auto-save with longer debounce to reduce lag
+  // Auto-save with debounce using ref to prevent multiple timers
   useEffect(() => {
-    const timer = setTimeout(saveData, 1500);
-    return () => clearTimeout(timer);
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+    saveTimerRef.current = setTimeout(saveData, 1500);
+
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
   }, [saveData]);
 
   // Memoize divisor to avoid recalculation
@@ -173,11 +213,11 @@ export default function SellerDetail() {
   const totalsPerTable = useMemo(
     () =>
       tables.map(t => ({
-        a: sum(t.rows.map(r => Number(r.a || 0) / digitDivisor)),
-        b: sum(t.rows.map(r => Number(r.b || 0) / digitDivisor)),
-        c: sum(t.rows.map(r => Number(r.c || 0) / digitDivisor)),
-        d: sum(t.rows.map(r => Number(r.d || 0) / digitDivisor)),
-        e: sum(t.rows.map(r => Number(r.e || 0) / digitDivisor)),
+        a: sum(t.rows.map(r => safeDivide(safeNumber(r.a), digitDivisor))),
+        b: sum(t.rows.map(r => safeDivide(safeNumber(r.b), digitDivisor))),
+        c: sum(t.rows.map(r => safeDivide(safeNumber(r.c), digitDivisor))),
+        d: sum(t.rows.map(r => safeDivide(safeNumber(r.d), digitDivisor))),
+        e: sum(t.rows.map(r => safeDivide(safeNumber(r.e), digitDivisor))),
       })),
     [tables, digitDivisor],
   );
@@ -192,11 +232,11 @@ export default function SellerDetail() {
     let count = 0;
     for (const table of tables) {
       for (const row of table.rows) {
-        if (row.a && Number(row.a) > 0) count++;
-        if (row.b && Number(row.b) > 0) count++;
-        if (row.c && Number(row.c) > 0) count++;
-        if (row.d && Number(row.d) > 0) count++;
-        if (row.e && Number(row.e) > 0) count++;
+        if (row.a && safeNumber(row.a) > 0) count++;
+        if (row.b && safeNumber(row.b) > 0) count++;
+        if (row.c && safeNumber(row.c) > 0) count++;
+        if (row.d && safeNumber(row.d) > 0) count++;
+        if (row.e && safeNumber(row.e) > 0) count++;
       }
     }
     return count;
@@ -204,17 +244,18 @@ export default function SellerDetail() {
 
   // Net weight after subtracting tare and impurity
   const netAfterImpurity = useMemo(() => {
-    const tareKg = Number(tarePerBag) || 0;
-    const impurityKg = Number(impurity) || 0;
+    const tareKg = safeNumber(tarePerBag);
+    const impurityKg = safeNumber(impurity);
     return Math.max(totalKgAllTables - tareKg - impurityKg, 0);
   }, [totalKgAllTables, tarePerBag, impurity]);
 
   const amount = useMemo(
-    () => (Number(unitPrice) || 0) * netAfterImpurity,
+    () => calculateAmount(unitPrice, netAfterImpurity),
     [unitPrice, netAfterImpurity],
   );
+
   const remaining = useMemo(
-    () => amount - (Number(deposit) || 0) - (Number(paid) || 0),
+    () => amount - safeNumber(deposit) - safeNumber(paid),
     [amount, deposit, paid],
   );
 
@@ -389,9 +430,9 @@ export default function SellerDetail() {
               const settings = await getSettings();
               const divisor = settings && settings.fourDigitInput ? 100 : 10;
 
-              console.log('🔄 Calculating totals for buyer:', buyerId);
-              console.log('🔄 Sellers:', sellersData.length);
-              console.log('🔄 Divisor:', divisor);
+              logger.log('🔄 Calculating totals for buyer:', buyerId);
+              logger.log('🔄 Sellers:', sellersData.length);
+              logger.log('🔄 Divisor:', divisor);
 
               // Calculate totals from all confirmed weighings
               for (const s of sellersData) {
@@ -400,7 +441,7 @@ export default function SellerDetail() {
 
                 if (weighData && weighData.confirmed) {
                   const tablesToCalc = weighData.tables || [];
-                  console.log(
+                  logger.log(
                     `🔄 Seller ${s.name} - Tables:`,
                     tablesToCalc.length,
                   );
@@ -412,21 +453,21 @@ export default function SellerDetail() {
                         rowSum +
                         Object.values(row).reduce(
                           (cellSum, val) =>
-                            cellSum + (Number(val) || 0) / divisor,
+                            cellSum + safeDivide(safeNumber(val), divisor),
                           0,
                         )
                       );
                     }, 0);
 
-                    console.log(`🔄 Table weight: ${tableWeight} kg`);
+                    logger.log(`🔄 Table weight: ${tableWeight} kg`);
                     totalWeight += tableWeight;
                     totalWeighCount += 1; // Count each table as one weighing
                   }
                 }
               }
 
-              console.log('🔄 Total weight:', totalWeight, 'kg');
-              console.log('🔄 Total weigh count:', totalWeighCount);
+              logger.log('🔄 Total weight:', totalWeight, 'kg');
+              logger.log('🔄 Total weigh count:', totalWeighCount);
 
               // Update buyer with new totals
               await updateBuyer(buyerId, {
@@ -455,51 +496,367 @@ export default function SellerDetail() {
       <StatusBar barStyle="light-content" backgroundColor="#10b981" />
 
       {/* Header */}
-      <View className="bg-emerald-500 pt-12 pb-4 px-5 rounded-b-3xl shadow-lg">
-        <View className="flex-row items-center justify-between mb-3">
+      <View className="bg-emerald-500 pt-10 pb-3 px-4 rounded-b-2xl shadow-lg">
+        <View className="flex-row items-center justify-between mb-2">
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text className="text-white text-2xl">← Quay lại</Text>
+            <Text className="text-white text-xl">← Quay lại</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={toggleLock}
-            className={`px-4 py-2 rounded-xl ${
+            className={`px-3 py-1.5 rounded-lg ${
               locked ? 'bg-red-500' : 'bg-blue-500'
             }`}
           >
-            <Text className="font-bold text-sm text-white">
-              {locked ? '🔓 Mở khóa' : '🔒 Khóa'}
+            <Text className="font-bold text-xs text-white">
+              {locked ? '🔓 Mở' : '🔒 Khóa'}
             </Text>
           </TouchableOpacity>
         </View>
         <View className="flex-row items-center">
-          <Text className="text-xl mr-2">👤</Text>
-          <Text className="text-2xl font-bold text-white flex-1">{name}</Text>
+          <Text className="text-lg mr-2">👤</Text>
+          <Text className="text-xl font-bold text-white flex-1">{name}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Bluetooth Weight Display */}
+        {/* Summary Card */}
+        <View className="mx-4 mt-3 bg-white rounded-2xl p-3 shadow-lg">
+          <Text className="text-lg font-bold text-gray-800 mb-2">
+            📊 Tổng kết
+          </Text>
+
+          <View style={styles.summaryRow}>
+            <TouchableOpacity
+              className="flex-1 bg-emerald-50 rounded-xl p-3"
+              onPress={() =>
+                showAlert({
+                  title: 'Tổng kg',
+                  message: numberToVietnamese(totalKgAllTables),
+                  buttons: [{ text: 'OK', onPress: hideAlert }],
+                })
+              }
+            >
+              <Text className="text-2xl font-bold text-emerald-700">
+                {formatNumber(totalKgAllTables)}
+              </Text>
+              <Text className="text-emerald-600 text-xs mt-0.5">Tổng kg</Text>
+            </TouchableOpacity>
+            <View className="flex-1 bg-blue-50 rounded-xl p-3">
+              <Text className="text-2xl font-bold text-blue-700">
+                {bagsCount}
+              </Text>
+              <Text className="text-blue-600 text-xs mt-0.5">Số bao</Text>
+            </View>
+          </View>
+
+          <View className="bg-gray-50 rounded-xl p-2.5 mb-2">
+            <View className="flex-row items-center justify-between mb-1.5">
+              <Text className="text-gray-600 text-xs">Trừ bao bì (kg)</Text>
+              <Text className="text-red-600 font-bold text-sm">
+                -{(Number(tarePerBag) || 0).toFixed(1)} kg
+              </Text>
+            </View>
+            <DecimalInput
+              className="bg-white rounded-lg px-3 py-2 text-base font-bold border border-gray-200"
+              value={tarePerBag}
+              onChangeText={setTarePerBag}
+              editable={!locked}
+              placeholder="0"
+            />
+          </View>
+
+          <View className="bg-gray-50 rounded-xl p-2.5 mb-2">
+            <View className="flex-row items-center justify-between mb-1.5">
+              <Text className="text-gray-600 text-xs">Trừ tạp chất (kg)</Text>
+              <Text className="text-red-600 font-bold text-sm">
+                -{(Number(impurity) || 0).toFixed(1)} kg
+              </Text>
+            </View>
+            <DecimalInput
+              className="bg-white rounded-lg px-3 py-2 text-base font-bold border border-gray-200"
+              value={impurity}
+              onChangeText={setImpurity}
+              editable={!locked}
+              placeholder="0"
+            />
+          </View>
+
+          <TouchableOpacity
+            className="bg-emerald-50 rounded-xl p-2.5 mb-2 border border-emerald-300"
+            onPress={() =>
+              showAlert({
+                title: 'Khối lượng thực',
+                message: numberToVietnamese(netAfterImpurity),
+                buttons: [{ text: 'OK', onPress: hideAlert }],
+              })
+            }
+          >
+            <Text className="text-emerald-700 font-bold text-base">
+              ✅ Thực: {formatNumber(netAfterImpurity)} kg
+            </Text>
+            <Text className="text-emerald-600 text-xs mt-0.5">
+              Nhấn xem chữ
+            </Text>
+          </TouchableOpacity>
+
+          <View className="bg-gray-50 rounded-xl p-2.5 mb-2">
+            <Text className="text-gray-600 text-xs mb-1.5">Đơn giá (đ/kg)</Text>
+            <MoneyInput
+              className="bg-white rounded-lg px-3 py-2 text-base font-bold border border-gray-200"
+              value={unitPrice}
+              onChangeText={setUnitPrice}
+              editable={!locked}
+              placeholder="0"
+            />
+          </View>
+
+          <TouchableOpacity
+            className="bg-amber-50 rounded-xl p-2.5 mb-2"
+            onPress={() =>
+              showAlert({
+                title: 'Thành tiền',
+                message: moneyToVietnamese(amount),
+                buttons: [{ text: 'OK', onPress: hideAlert }],
+              })
+            }
+          >
+            <Text className="text-amber-700 font-bold text-lg">
+              💰 {amount.toLocaleString('vi-VN')} đ
+            </Text>
+            <Text className="text-amber-600 text-xs mt-0.5">Nhấn xem chữ</Text>
+          </TouchableOpacity>
+
+          <View className="bg-gray-50 rounded-xl p-2.5 mb-2">
+            <Text className="text-gray-600 text-xs mb-1.5">Tiền cọc (đ)</Text>
+            <MoneyInput
+              className="bg-white rounded-lg px-3 py-2 text-base font-bold border border-gray-200"
+              value={deposit}
+              onChangeText={setDeposit}
+              editable={!locked}
+              placeholder="0"
+            />
+          </View>
+
+          <View className="bg-gray-50 rounded-xl p-2.5 mb-2">
+            <Text className="text-gray-600 text-xs mb-1.5">
+              Tiền đã trả (đ)
+            </Text>
+            <MoneyInput
+              className="bg-white rounded-lg px-3 py-2 text-base font-bold border border-gray-200"
+              value={paid}
+              onChangeText={setPaid}
+              editable={!locked}
+              placeholder="0"
+            />
+          </View>
+
+          <View
+            className={`rounded-xl p-2.5 mb-2 ${
+              remaining >= 0 ? 'bg-blue-50' : 'bg-red-50'
+            }`}
+          >
+            <Text
+              className={`font-bold text-lg ${
+                remaining >= 0 ? 'text-blue-700' : 'text-red-700'
+              }`}
+            >
+              {remaining >= 0 ? '💵' : '⚠️'}{' '}
+              {Math.abs(remaining).toLocaleString()} đ
+            </Text>
+            <Text
+              className={`text-xs mt-0.5 ${
+                remaining >= 0 ? 'text-blue-600' : 'text-red-600'
+              }`}
+            >
+              {remaining >= 0 ? 'Còn lại' : 'Thừa'}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={onConfirm}
+            className={`rounded-xl py-3 items-center ${
+              confirmed ? 'bg-gray-300' : 'bg-emerald-500'
+            }`}
+            disabled={confirmed}
+          >
+            <Text
+              className={`font-bold text-sm ${
+                confirmed ? 'text-gray-500' : 'text-white'
+              }`}
+            >
+              {confirmed ? '✅ Đã kết sổ' : '✅ Xác nhận và kết sổ'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Weight Tables - Horizontal Scroll */}
+        <View className="mt-3">
+          {/* Navigation Header */}
+          <View className="flex-row items-center justify-between px-4 mb-2">
+            <TouchableOpacity
+              onPress={goToPrevTable}
+              disabled={viewingTableIndex === 0}
+              className={`px-3 py-1.5 rounded-lg ${
+                viewingTableIndex === 0 ? 'bg-gray-200' : 'bg-blue-500'
+              }`}
+            >
+              <Text
+                className={`font-bold text-xs ${
+                  viewingTableIndex === 0 ? 'text-gray-400' : 'text-white'
+                }`}
+              >
+                ← Trước
+              </Text>
+            </TouchableOpacity>
+
+            <View className="bg-emerald-500 px-4 py-1.5 rounded-lg">
+              <Text className="text-white font-bold text-sm">
+                📋 Bảng {viewingTableIndex + 1}/{tables.length}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={goToNextTable}
+              disabled={viewingTableIndex === tables.length - 1}
+              className={`px-3 py-1.5 rounded-lg ${
+                viewingTableIndex === tables.length - 1
+                  ? 'bg-gray-200'
+                  : 'bg-blue-500'
+              }`}
+            >
+              <Text
+                className={`font-bold text-xs ${
+                  viewingTableIndex === tables.length - 1
+                    ? 'text-gray-400'
+                    : 'text-white'
+                }`}
+              >
+                Sau →
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Single Table View - Only render current viewing table */}
+          <View style={styles.tableContainer}>
+            {(() => {
+              const ti = viewingTableIndex;
+              const table = tables[ti];
+              if (!table) return null;
+
+              return (
+                <View
+                  key={table.id}
+                  style={{ width: SCREEN_WIDTH - 32 }}
+                  className="bg-white rounded-2xl p-3 shadow-lg"
+                >
+                  {[0, 1, 2, 3, 4, 5].map(ri => (
+                    <View key={ri} style={styles.tableRow}>
+                      {['a', 'b', 'c', 'd', 'e'].map(key => {
+                        // Row 6 is total row (read-only)
+                        if (ri === 5) {
+                          const colTotal = totalsPerTable[ti]?.[key] || 0;
+                          return (
+                            <View
+                              key={key}
+                              className="flex-1 bg-emerald-100 rounded-lg px-1 py-2 border border-emerald-400"
+                            >
+                              <Text className="text-center font-bold text-sm text-emerald-800">
+                                {colTotal.toFixed(1)}
+                              </Text>
+                            </View>
+                          );
+                        }
+
+                        // Only allow editing current table and previous tables
+                        const canEdit =
+                          !confirmed && locked && ti <= currentTableIndex;
+
+                        // Check if this cell is in the future (after current cell)
+                        const isFuture = () => {
+                          if (ti > currentTableIndex) return true;
+                          if (ti < currentTableIndex) return false;
+
+                          const current = findCurrentCell();
+                          if (!current) return false;
+
+                          const cols = ['a', 'b', 'c', 'd', 'e'];
+                          const currentColIndex = cols.indexOf(current.col);
+                          const thisColIndex = cols.indexOf(key);
+
+                          if (thisColIndex > currentColIndex) return true;
+                          if (thisColIndex < currentColIndex) return false;
+                          return ri > current.ri;
+                        };
+
+                        return (
+                          <WeightInput
+                            key={key}
+                            ref={ref => {
+                              inputRefs.current[`${ti}-${ri}-${key}`] = ref;
+                            }}
+                            className="flex-1 bg-gray-50 rounded-lg px-1 py-2 text-center text-sm font-bold border border-gray-200"
+                            style={
+                              !canEdit && locked
+                                ? styles.disabledCell
+                                : undefined
+                            }
+                            placeholder="0"
+                            value={tables[ti].rows[ri][key]}
+                            onChangeText={v => onChangeCell(ti, ri, key, v)}
+                            onFocus={() => {
+                              // If clicking future cell, jump back to current
+                              if (locked && isFuture()) {
+                                setTimeout(focusCurrentCell, 0);
+                              }
+                            }}
+                            selectTextOnFocus={true}
+                            editable={canEdit}
+                            maxDigits={maxDigits}
+                          />
+                        );
+                      })}
+                    </View>
+                  ))}
+
+                  <View className="mt-2 bg-emerald-50 rounded-xl p-2">
+                    <Text className="text-emerald-800 font-bold text-sm">
+                      Tổng bảng:{' '}
+                      {sum([
+                        totalsPerTable[ti].a,
+                        totalsPerTable[ti].b,
+                        totalsPerTable[ti].c,
+                        totalsPerTable[ti].d,
+                        totalsPerTable[ti].e,
+                      ]).toFixed(1)}{' '}
+                      kg
+                    </Text>
+                  </View>
+                </View>
+              );
+            })()}
+          </View>
+        </View>
+
+        {/* Bluetooth Weight Display - Moved below tables */}
         {bluetoothConnected && (
-          <View className="mx-5 mt-4 bg-blue-50 rounded-3xl p-5 shadow-lg border-2 border-blue-300">
-            <View className="flex-row items-center justify-between mb-3">
+          <View className="mx-4 mt-3 bg-blue-50 rounded-2xl p-3 shadow-lg border border-blue-300">
+            <View className="flex-row items-center justify-between mb-2">
               <View className="flex-row items-center">
-                <Text className="text-2xl mr-2">⚖️</Text>
-                <Text className="text-lg font-bold text-blue-800">
+                <Text className="text-xl mr-2">⚖️</Text>
+                <Text className="text-base font-bold text-blue-800">
                   Cân Bluetooth
                 </Text>
               </View>
-              <View className="bg-green-500 px-3 py-1 rounded-full">
-                <Text className="text-white text-xs font-bold">
-                  📡 Đã kết nối
-                </Text>
+              <View className="bg-green-500 px-2 py-0.5 rounded-full">
+                <Text className="text-white text-xs font-bold">📡 Kết nối</Text>
               </View>
             </View>
 
-            <View className="bg-white rounded-2xl p-4 mb-3">
-              <Text className="text-gray-600 text-sm mb-2">
+            <View className="bg-white rounded-xl p-3 mb-2">
+              <Text className="text-gray-600 text-xs mb-1">
                 Khối lượng đo được
               </Text>
-              <Text className="text-4xl font-bold text-blue-700 text-center">
+              <Text className="text-3xl font-bold text-blue-700 text-center">
                 {currentWeight ? `${currentWeight.toFixed(1)} kg` : '-- kg'}
               </Text>
             </View>
@@ -553,342 +910,21 @@ export default function SellerDetail() {
                   });
                 }
               }}
-              className="bg-blue-500 rounded-2xl py-4 items-center"
+              className="bg-blue-500 rounded-xl py-2.5 items-center"
               disabled={!currentWeight || currentWeight <= 0}
             >
-              <Text className="font-bold text-base text-white">
+              <Text className="font-bold text-sm text-white">
                 ✅ Xác nhận và thêm vào bảng
               </Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Summary Card */}
-        <View className="mx-5 mt-4 bg-white rounded-3xl p-5 shadow-lg">
-          <Text className="text-xl font-bold text-gray-800 mb-4">
-            📊 Tổng kết
-          </Text>
-
-          <View style={styles.summaryRow}>
-            <TouchableOpacity
-              className="flex-1 bg-emerald-50 rounded-2xl p-4"
-              onPress={() =>
-                showAlert({
-                  title: 'Tổng kg',
-                  message: numberToVietnamese(totalKgAllTables),
-                  buttons: [{ text: 'OK', onPress: hideAlert }],
-                })
-              }
-            >
-              <Text className="text-3xl font-bold text-emerald-700">
-                {formatNumber(totalKgAllTables)}
-              </Text>
-              <Text className="text-emerald-600 text-xs mt-1">
-                Tổng kg (nhấn xem chữ)
-              </Text>
-            </TouchableOpacity>
-            <View className="flex-1 bg-blue-50 rounded-2xl p-4">
-              <Text className="text-3xl font-bold text-blue-700">
-                {bagsCount}
-              </Text>
-              <Text className="text-blue-600 text-xs mt-1">Số bao</Text>
-            </View>
-          </View>
-          <View className="bg-gray-50 rounded-2xl p-4 mb-3">
-            <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-gray-600 text-sm">Trừ bao bì (kg)</Text>
-              <Text className="text-red-600 font-bold text-base">
-                -{(Number(tarePerBag) || 0).toFixed(1)} kg
-              </Text>
-            </View>
-            <DecimalInput
-              className="bg-white rounded-xl px-4 py-3 text-lg font-bold border border-gray-200"
-              value={tarePerBag}
-              onChangeText={setTarePerBag}
-              editable={!locked}
-              placeholder="Nhập kg bao bì (vd: 50 hoặc 50,5)"
-            />
-          </View>
-
-          <View className="bg-gray-50 rounded-2xl p-4 mb-3">
-            <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-gray-600 text-sm">Trừ tạp chất (kg)</Text>
-              <Text className="text-red-600 font-bold text-base">
-                -{(Number(impurity) || 0).toFixed(1)} kg
-              </Text>
-            </View>
-            <DecimalInput
-              className="bg-white rounded-xl px-4 py-3 text-lg font-bold border border-gray-200"
-              value={impurity}
-              onChangeText={setImpurity}
-              editable={!locked}
-              placeholder="Nhập kg tạp chất (vd: 10 hoặc 10,5)"
-            />
-          </View>
-
-          <TouchableOpacity
-            className="bg-emerald-50 rounded-2xl p-4 mb-3 border-2 border-emerald-300"
-            onPress={() =>
-              showAlert({
-                title: 'Khối lượng thực',
-                message: numberToVietnamese(netAfterImpurity),
-                buttons: [{ text: 'OK', onPress: hideAlert }],
-              })
-            }
-          >
-            <Text className="text-emerald-700 font-bold text-lg">
-              ✅ Khối lượng thực: {formatNumber(netAfterImpurity)} kg
-            </Text>
-            <Text className="text-emerald-600 text-xs mt-1">
-              = {formatNumber(totalKgAllTables)} -{' '}
-              {formatNumber(Number(tarePerBag) || 0)} (bao bì) -{' '}
-              {formatNumber(Number(impurity) || 0)} (tạp chất)
-            </Text>
-            <Text className="text-emerald-500 text-xs mt-1 italic">
-              Nhấn để xem số bằng chữ
-            </Text>
-          </TouchableOpacity>
-
-          <View className="bg-gray-50 rounded-2xl p-4 mb-3">
-            <Text className="text-gray-600 text-sm mb-2">Đơn giá (đ/kg)</Text>
-            <MoneyInput
-              className="bg-white rounded-xl px-4 py-3 text-lg font-bold border border-gray-200"
-              value={unitPrice}
-              onChangeText={setUnitPrice}
-              editable={!locked}
-            />
-          </View>
-
-          <TouchableOpacity
-            className="bg-amber-50 rounded-2xl p-4 mb-3"
-            onPress={() =>
-              showAlert({
-                title: 'Thành tiền',
-                message: moneyToVietnamese(amount),
-                buttons: [{ text: 'OK', onPress: hideAlert }],
-              })
-            }
-          >
-            <Text className="text-amber-700 font-bold text-xl">
-              💰 {amount.toLocaleString('vi-VN')} đ
-            </Text>
-            <Text className="text-amber-600 text-xs mt-1">
-              Thành tiền (nhấn xem chữ)
-            </Text>
-          </TouchableOpacity>
-
-          <View className="bg-gray-50 rounded-2xl p-4 mb-3">
-            <Text className="text-gray-600 text-sm mb-2">Tiền cọc (đ)</Text>
-            <MoneyInput
-              className="bg-white rounded-xl px-4 py-3 text-lg font-bold border border-gray-200"
-              value={deposit}
-              onChangeText={setDeposit}
-              editable={!locked}
-            />
-          </View>
-
-          <View className="bg-gray-50 rounded-2xl p-4 mb-3">
-            <Text className="text-gray-600 text-sm mb-2">Tiền đã trả (đ)</Text>
-            <MoneyInput
-              className="bg-white rounded-xl px-4 py-3 text-lg font-bold border border-gray-200"
-              value={paid}
-              onChangeText={setPaid}
-              editable={!locked}
-            />
-          </View>
-
-          <View
-            className={`rounded-2xl p-4 ${
-              remaining >= 0 ? 'bg-blue-50' : 'bg-red-50'
-            }`}
-          >
-            <Text
-              className={`font-bold text-xl ${
-                remaining >= 0 ? 'text-blue-700' : 'text-red-700'
-              }`}
-            >
-              {remaining >= 0 ? '💵' : '⚠️'}{' '}
-              {Math.abs(remaining).toLocaleString()} đ
-            </Text>
-            <Text
-              className={`text-xs mt-1 ${
-                remaining >= 0 ? 'text-blue-600' : 'text-red-600'
-              }`}
-            >
-              {remaining >= 0 ? 'Còn lại' : 'Thừa'}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={onConfirm}
-            className={`mt-3 rounded-2xl py-4 items-center ${
-              confirmed ? 'bg-gray-300' : 'bg-emerald-500'
-            }`}
-            disabled={confirmed}
-          >
-            <Text
-              className={`font-bold text-base ${
-                confirmed ? 'text-gray-500' : 'text-white'
-              }`}
-            >
-              {confirmed ? '✅ Đã kết sổ' : '✅ Xác nhận và kết sổ'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Weight Tables - Horizontal Scroll */}
-        <View className="mt-4">
-          {/* Navigation Header */}
-          <View className="flex-row items-center justify-between px-5 mb-3">
-            <TouchableOpacity
-              onPress={goToPrevTable}
-              disabled={viewingTableIndex === 0}
-              className={`px-4 py-2 rounded-xl ${
-                viewingTableIndex === 0 ? 'bg-gray-200' : 'bg-blue-500'
-              }`}
-            >
-              <Text
-                className={`font-bold ${
-                  viewingTableIndex === 0 ? 'text-gray-400' : 'text-white'
-                }`}
-              >
-                ← Trước
-              </Text>
-            </TouchableOpacity>
-
-            <View className="bg-emerald-500 px-6 py-2 rounded-xl">
-              <Text className="text-white font-bold text-base">
-                📋 Bảng {viewingTableIndex + 1}/{tables.length}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={goToNextTable}
-              disabled={viewingTableIndex === tables.length - 1}
-              className={`px-4 py-2 rounded-xl ${
-                viewingTableIndex === tables.length - 1
-                  ? 'bg-gray-200'
-                  : 'bg-blue-500'
-              }`}
-            >
-              <Text
-                className={`font-bold ${
-                  viewingTableIndex === tables.length - 1
-                    ? 'text-gray-400'
-                    : 'text-white'
-                }`}
-              >
-                Sau →
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Single Table View - Only render current viewing table */}
-          <View style={styles.tableContainer}>
-            {(() => {
-              const ti = viewingTableIndex;
-              const table = tables[ti];
-              if (!table) return null;
-
-              return (
-                <View
-                  key={table.id}
-                  style={{ width: SCREEN_WIDTH - 40 }}
-                  className="bg-white rounded-3xl p-5 shadow-lg"
-                >
-                  {[0, 1, 2, 3, 4, 5].map(ri => (
-                    <View key={ri} style={styles.tableRow}>
-                      {['a', 'b', 'c', 'd', 'e'].map(key => {
-                        // Row 6 is total row (read-only)
-                        if (ri === 5) {
-                          const colTotal = totalsPerTable[ti]?.[key] || 0;
-                          return (
-                            <View
-                              key={key}
-                              className="flex-1 bg-emerald-100 rounded-xl px-1 py-3 border-2 border-emerald-400"
-                            >
-                              <Text className="text-center font-bold text-emerald-800">
-                                {colTotal.toFixed(1)}
-                              </Text>
-                            </View>
-                          );
-                        }
-
-                        // Only allow editing current table and previous tables
-                        const canEdit =
-                          !confirmed && locked && ti <= currentTableIndex;
-
-                        // Check if this cell is in the future (after current cell)
-                        const isFuture = () => {
-                          if (ti > currentTableIndex) return true;
-                          if (ti < currentTableIndex) return false;
-
-                          const current = findCurrentCell();
-                          if (!current) return false;
-
-                          const cols = ['a', 'b', 'c', 'd', 'e'];
-                          const currentColIndex = cols.indexOf(current.col);
-                          const thisColIndex = cols.indexOf(key);
-
-                          if (thisColIndex > currentColIndex) return true;
-                          if (thisColIndex < currentColIndex) return false;
-                          return ri > current.ri;
-                        };
-
-                        return (
-                          <WeightInput
-                            key={key}
-                            ref={ref => {
-                              inputRefs.current[`${ti}-${ri}-${key}`] = ref;
-                            }}
-                            className="flex-1 bg-gray-50 rounded-xl px-2 py-3 text-center font-bold border border-gray-200"
-                            style={
-                              !canEdit && locked
-                                ? styles.disabledCell
-                                : undefined
-                            }
-                            placeholder="0"
-                            value={tables[ti].rows[ri][key]}
-                            onChangeText={v => onChangeCell(ti, ri, key, v)}
-                            onFocus={() => {
-                              // If clicking future cell, jump back to current
-                              if (locked && isFuture()) {
-                                setTimeout(focusCurrentCell, 0);
-                              }
-                            }}
-                            selectTextOnFocus={true}
-                            editable={canEdit}
-                            maxDigits={maxDigits}
-                          />
-                        );
-                      })}
-                    </View>
-                  ))}
-
-                  <View className="mt-3 bg-emerald-50 rounded-2xl p-3">
-                    <Text className="text-emerald-800 font-bold text-base mt-1">
-                      Tổng bảng:{' '}
-                      {sum([
-                        totalsPerTable[ti].a,
-                        totalsPerTable[ti].b,
-                        totalsPerTable[ti].c,
-                        totalsPerTable[ti].d,
-                        totalsPerTable[ti].e,
-                      ]).toFixed(1)}{' '}
-                      kg
-                    </Text>
-                  </View>
-                </View>
-              );
-            })()}
-          </View>
-        </View>
-
-        <View className="mx-5 mt-4 mb-6 bg-emerald-500 rounded-3xl p-6 shadow-lg">
-          <Text className="text-white text-center text-2xl font-bold">
+        <View className="mx-4 mt-3 mb-4 bg-emerald-500 rounded-2xl p-4 shadow-lg">
+          <Text className="text-white text-center text-xl font-bold">
             🌾 {totalKgAllTables.toFixed(1)} kg
           </Text>
-          <Text className="text-emerald-100 text-center text-sm mt-1">
+          <Text className="text-emerald-100 text-center text-xs mt-0.5">
             Tổng kết {tables.length} bảng
           </Text>
         </View>
@@ -910,10 +946,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   tableContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   disabledCell: {
     backgroundColor: '#f3f4f6',
@@ -921,12 +957,12 @@ const styles = StyleSheet.create({
   },
   summaryRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 8,
   },
   tableRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
+    gap: 6,
+    marginBottom: 6,
   },
 });

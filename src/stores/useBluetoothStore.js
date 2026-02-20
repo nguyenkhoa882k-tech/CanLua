@@ -1,5 +1,10 @@
 import { create } from 'zustand';
+import { AppState } from 'react-native';
 import BluetoothService from '../services/bluetooth';
+import logger from '../utils/logger';
+
+// AppState subscription for cleanup
+let appStateSubscription = null;
 
 export const useBluetoothStore = create((set, get) => ({
   // State
@@ -14,19 +19,46 @@ export const useBluetoothStore = create((set, get) => ({
   // Actions
   setEnabled: enabled => set({ isEnabled: enabled }),
 
+  // Initialize AppState listener for cleanup
+  initAppStateListener: () => {
+    if (appStateSubscription) {
+      return; // Already initialized
+    }
+
+    appStateSubscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'background') {
+        logger.log('📱 App going to background, cleaning up Bluetooth...');
+        BluetoothService.cleanup();
+        set({
+          isScanning: false,
+          currentWeight: null,
+        });
+      }
+    });
+  },
+
+  // Cleanup AppState listener
+  cleanupAppStateListener: () => {
+    if (appStateSubscription) {
+      appStateSubscription.remove();
+      appStateSubscription = null;
+    }
+  },
+
   scanDevices: async () => {
     set({ isScanning: true, error: null, devices: [] });
     try {
+      logger.log('🔄 Store: Starting scan...');
       const devices = await BluetoothService.scanDevices(5000);
 
       // Ensure devices is an array
       const deviceArray = Array.isArray(devices) ? devices : [];
 
-      console.log('📱 Store received devices:', deviceArray);
+      logger.log('📱 Store received devices:', deviceArray.length, deviceArray);
       set({ devices: deviceArray, isScanning: false });
       return deviceArray;
     } catch (error) {
-      console.error('❌ Store scan error:', error);
+      logger.error('❌ Store scan error:', error);
       set({
         error: error.message || 'Lỗi không xác định khi quét Bluetooth',
         isScanning: false,

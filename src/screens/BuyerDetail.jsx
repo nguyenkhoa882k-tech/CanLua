@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  Alert,
   Modal,
   Animated,
   StatusBar,
@@ -113,12 +112,16 @@ export default function BuyerDetail() {
     setTotalKg(Math.round(totalKgCount * 10) / 10);
   };
 
+  // Load data on mount and when buyerId changes
   useEffect(() => {
     loadData();
+  }, [buyerId]);
+
+  // Setup navigation listener separately
+  useEffect(() => {
     const unsub = navigation.addListener('focus', loadData);
-    return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buyerId, navigation]);
+    return () => unsub();
+  }, [navigation]);
 
   const openModal = () => {
     setModalVisible(true);
@@ -189,40 +192,40 @@ export default function BuyerDetail() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#10b981" />
 
       {/* Header */}
-      <View className="bg-emerald-500 pt-12 pb-6 px-5 rounded-b-3xl shadow-lg">
-        <TouchableOpacity onPress={() => navigation.goBack()} className="mb-3">
-          <Text className="text-white text-2xl">← Quay lại</Text>
+      <View className="bg-emerald-500 pt-10 pb-4 px-4 rounded-b-2xl shadow-lg">
+        <TouchableOpacity onPress={() => navigation.goBack()} className="mb-2">
+          <Text className="text-white text-xl">← Quay lại</Text>
         </TouchableOpacity>
-        <View className="flex-row items-center mb-2">
-          <Text className="text-xl mr-2">🚜</Text>
-          <Text className="text-2xl font-bold text-white flex-1">
+        <View className="flex-row items-center mb-1">
+          <Text className="text-lg mr-2">🚜</Text>
+          <Text className="text-xl font-bold text-white flex-1">
             {buyer?.name}
           </Text>
         </View>
-        <Text className="text-emerald-100 text-sm">Quản lý người bán lúa</Text>
+        <Text className="text-emerald-100 text-xs">Quản lý người bán lúa</Text>
       </View>
 
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Text className="text-2xl font-bold text-emerald-600">
+          <Text className="text-xl font-bold text-emerald-600">
             {sellers.length}
           </Text>
-          <Text className="text-gray-500 text-xs mt-1">Người bán</Text>
+          <Text className="text-gray-500 text-xs mt-0.5">Người bán</Text>
         </View>
         <View style={styles.statCard}>
-          <Text className="text-2xl font-bold text-blue-600">{totalBags}</Text>
-          <Text className="text-gray-500 text-xs mt-1">Tổng bao</Text>
+          <Text className="text-xl font-bold text-blue-600">{totalBags}</Text>
+          <Text className="text-gray-500 text-xs mt-0.5">Tổng bao</Text>
         </View>
         <View style={styles.statCard}>
-          <Text className="text-2xl font-bold text-amber-600">
+          <Text className="text-xl font-bold text-amber-600">
             {formatWeight(totalKg)}
           </Text>
-          <Text className="text-gray-500 text-xs mt-1">Tổng kg</Text>
+          <Text className="text-gray-500 text-xs mt-0.5">Tổng kg</Text>
         </View>
       </View>
 
@@ -230,7 +233,7 @@ export default function BuyerDetail() {
       <FlatList
         data={sellers}
         keyExtractor={item => item.id}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+        contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <TouchableOpacity
             onPress={() =>
@@ -239,15 +242,15 @@ export default function BuyerDetail() {
             style={styles.sellerCard}
             activeOpacity={0.7}
           >
-            <View className="flex-row justify-between items-start mb-3">
+            <View className="flex-row justify-between items-start mb-2">
               <View className="flex-1">
-                <View className="flex-row items-center mb-1">
-                  <Text className="text-xl mr-2">👤</Text>
-                  <Text className="text-lg font-bold text-gray-800 flex-1">
+                <View className="flex-row items-center mb-0.5">
+                  <Text className="text-lg mr-1.5">👤</Text>
+                  <Text className="text-base font-bold text-gray-800 flex-1">
                     {item.name}
                   </Text>
                   {item.confirmed && (
-                    <View className="bg-green-100 px-2 py-1 rounded-full ml-2">
+                    <View className="bg-green-100 px-1.5 py-0.5 rounded-full ml-2">
                       <Text className="text-green-700 text-xs font-bold">
                         ✅
                       </Text>
@@ -260,7 +263,7 @@ export default function BuyerDetail() {
               </View>
               <TouchableOpacity
                 onPress={() => onDeleteSeller(item.id)}
-                className="bg-red-50 px-3 py-1.5 rounded-lg"
+                className="bg-red-50 px-2 py-1 rounded-lg"
               >
                 <Text className="text-red-600 text-xs font-semibold">
                   🗑️ Xoá
@@ -269,8 +272,8 @@ export default function BuyerDetail() {
             </View>
 
             {item.unitPrice != null && (
-              <View className="bg-emerald-50 rounded-xl p-3 mb-3">
-                <Text className="text-emerald-700 font-bold text-base">
+              <View className="bg-emerald-50 rounded-lg p-2 mb-2">
+                <Text className="text-emerald-700 font-bold text-sm">
                   {formatMoney(item.unitPrice)} đ/kg
                 </Text>
                 <Text className="text-emerald-600 text-xs">Đơn giá</Text>
@@ -281,21 +284,19 @@ export default function BuyerDetail() {
               onPress={() =>
                 navigation.navigate('SellerDetail', { buyerId, seller: item })
               }
-              className="bg-emerald-500 rounded-xl py-3 items-center"
+              className="bg-emerald-500 rounded-lg py-2 items-center"
             >
-              <Text className="text-white font-semibold">
+              <Text className="text-white font-semibold text-sm">
                 Mở chi tiết cân lúa →
               </Text>
             </TouchableOpacity>
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          <View className="items-center mt-20">
-            <Text className="text-6xl mb-4">👥</Text>
-            <Text className="text-gray-400 text-base">
-              Chưa có người bán nào
-            </Text>
-            <Text className="text-gray-300 text-sm mt-1">
+          <View className="items-center mt-16">
+            <Text className="text-5xl mb-3">👥</Text>
+            <Text className="text-gray-400 text-sm">Chưa có người bán nào</Text>
+            <Text className="text-gray-300 text-xs mt-1">
               Nhấn nút + để thêm người bán
             </Text>
           </View>
@@ -305,10 +306,10 @@ export default function BuyerDetail() {
       {/* FAB */}
       <TouchableOpacity
         onPress={openModal}
-        className="absolute bottom-6 right-6 bg-emerald-500 w-16 h-16 rounded-full items-center justify-center shadow-2xl"
+        className="absolute bottom-5 right-5 bg-emerald-500 w-14 h-14 rounded-full items-center justify-center shadow-2xl"
         activeOpacity={0.8}
       >
-        <Text className="text-white text-3xl font-bold">+</Text>
+        <Text className="text-white text-2xl font-bold">+</Text>
       </TouchableOpacity>
 
       {/* Modal */}
@@ -324,35 +325,36 @@ export default function BuyerDetail() {
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
             }}
-            className="bg-white rounded-3xl p-6 shadow-2xl"
+            className="bg-white rounded-2xl p-5 shadow-2xl"
           >
-            <Text className="text-2xl font-bold text-gray-800 mb-1">
+            <Text className="text-xl font-bold text-gray-800 mb-1">
               ➕ Thêm người bán
             </Text>
-            <Text className="text-gray-400 text-sm mb-6">
+            <Text className="text-gray-400 text-xs mb-4">
               Nhập thông tin người bán lúa
             </Text>
 
-            <View className="mb-4">
-              <Text className="text-gray-700 font-semibold mb-2">
+            <View className="mb-3">
+              <Text className="text-gray-700 font-semibold mb-1.5 text-sm">
                 Tên người bán <Text className="text-red-500">*</Text>
               </Text>
               <TextInput
-                className="bg-gray-50 rounded-xl px-4 py-3 text-base border border-gray-200"
+                className="bg-gray-50 rounded-lg px-3 py-2 text-sm border border-gray-200"
                 placeholder="Nhập tên người bán..."
+                placeholderTextColor="#9ca3af"
                 value={name}
                 onChangeText={setName}
                 autoFocus
               />
             </View>
 
-            <View className="mb-6">
-              <Text className="text-gray-700 font-semibold mb-2">
+            <View className="mb-4">
+              <Text className="text-gray-700 font-semibold mb-1.5 text-sm">
                 Đơn giá (đ/kg)
               </Text>
               <MoneyInput
-                className="bg-gray-50 rounded-xl px-4 py-3 txt-base border border-gray-200"
-                placeholder="Nhập đơn giá ..."
+                className="bg-gray-50 rounded-lg px-3 py-2 text-sm border border-gray-200"
+                placeholder="Nhập đơn giá..."
                 value={price}
                 onChangeText={setPrice}
               />
@@ -361,17 +363,15 @@ export default function BuyerDetail() {
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 onPress={closeModal}
-                className="flex-1 bg-gray-100 rounded-xl py-4 items-center"
+                className="flex-1 bg-gray-100 rounded-lg py-3 items-center"
               >
-                <Text className="text-gray-700 font-semibold text-base">
-                  Huỷ
-                </Text>
+                <Text className="text-gray-700 font-semibold text-sm">Huỷ</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onAddSeller}
-                className="flex-1 bg-emerald-500 rounded-xl py-4 items-center shadow"
+                className="flex-1 bg-emerald-500 rounded-lg py-3 items-center shadow"
               >
-                <Text className="text-white font-bold text-base">Thêm mới</Text>
+                <Text className="text-white font-bold text-sm">Thêm mới</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -391,28 +391,36 @@ export default function BuyerDetail() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    padding: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 80,
+  },
   sellerCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -427,6 +435,6 @@ const styles = StyleSheet.create({
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
 });
