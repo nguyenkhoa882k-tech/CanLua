@@ -235,17 +235,22 @@ export default function BuyerList() {
   };
 
   const onDelete = async id => {
-    showAlert('Xoá người mua', 'Bạn có chắc muốn xoá?', [
-      { text: 'Huỷ', style: 'cancel' },
-      {
-        text: 'Xoá',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteBuyer(id);
-          loadBuyers();
+    showAlert({
+      title: 'Xoá người mua',
+      message: 'Bạn có chắc muốn xoá?',
+      buttons: [
+        { text: 'Huỷ', style: 'cancel', onPress: hideAlert },
+        {
+          text: 'Xoá',
+          style: 'destructive',
+          onPress: async () => {
+            hideAlert();
+            await deleteBuyer(id);
+            loadBuyers();
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   return (
