@@ -43,7 +43,6 @@ import {
   safeDivide,
   calculateAmount,
 } from '../utils/safeCalculations';
-import logger from '../utils/logger';
 import { useBluetoothStore } from '../stores/useBluetoothStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -125,7 +124,6 @@ export default function SellerDetail() {
         setDeposit(saved.deposit || '0');
         setPaid(saved.paid || '0');
         setConfirmed(saved.confirmed || false);
-        setLocked(saved.locked || false);
 
         // If confirmed (kết sổ), show first table. Otherwise, show last working table
         const tableIndex = saved.confirmed ? 0 : saved.currentTableIndex || 0;
@@ -382,7 +380,7 @@ export default function SellerDetail() {
       }, 50);
       setTimeout(() => {
         focusCurrentCell();
-      }, 300);
+      }, 500);
     }
   };
 
@@ -430,10 +428,6 @@ export default function SellerDetail() {
               const settings = await getSettings();
               const divisor = settings && settings.fourDigitInput ? 100 : 10;
 
-              logger.log('🔄 Calculating totals for buyer:', buyerId);
-              logger.log('🔄 Sellers:', sellersData.length);
-              logger.log('🔄 Divisor:', divisor);
-
               // Calculate totals from all confirmed weighings
               for (const s of sellersData) {
                 const weighKey = `weighing_${buyerId}_${s.id}`;
@@ -441,10 +435,6 @@ export default function SellerDetail() {
 
                 if (weighData && weighData.confirmed) {
                   const tablesToCalc = weighData.tables || [];
-                  logger.log(
-                    `🔄 Seller ${s.name} - Tables:`,
-                    tablesToCalc.length,
-                  );
 
                   // Calculate weight from ALL rows in ALL tables
                   for (const table of tablesToCalc) {
@@ -459,15 +449,11 @@ export default function SellerDetail() {
                       );
                     }, 0);
 
-                    logger.log(`🔄 Table weight: ${tableWeight} kg`);
                     totalWeight += tableWeight;
                     totalWeighCount += 1; // Count each table as one weighing
                   }
                 }
               }
-
-              logger.log('🔄 Total weight:', totalWeight, 'kg');
-              logger.log('🔄 Total weigh count:', totalWeighCount);
 
               // Update buyer with new totals
               await updateBuyer(buyerId, {

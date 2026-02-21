@@ -28,8 +28,6 @@ class BluetoothService {
       await BleManager.start({ showAlert: false });
       this.isInitialized = true;
 
-      logger.log('✅ Bluetooth initialized');
-
       // Setup listeners
       this.setupListeners();
     } catch (error) {

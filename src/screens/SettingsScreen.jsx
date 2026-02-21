@@ -654,23 +654,24 @@ export default function SettingsScreen() {
               </View>
             </View>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleReminders}
-            className="bg-orange-50 rounded-lg p-3"
-          >
-            <View className="flex-row items-center">
-              <Text className="text-2xl mr-2">🔔</Text>
-              <View className="flex-1">
-                <Text className="font-bold text-orange-700 text-sm">
-                  Nhắc nhở
-                </Text>
-                <Text className="text-orange-600 text-xs">
-                  Cài đặt nhắc nhở công việc
-                </Text>
+          {__DEV__ ?? (
+            <TouchableOpacity
+              onPress={handleReminders}
+              className="bg-orange-50 rounded-lg p-3"
+            >
+              <View className="flex-row items-center">
+                <Text className="text-2xl mr-2">🔔</Text>
+                <View className="flex-1">
+                  <Text className="font-bold text-orange-700 text-sm">
+                    Nhắc nhở
+                  </Text>
+                  <Text className="text-orange-600 text-xs">
+                    Cài đặt nhắc nhở công việc
+                  </Text>
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* About */}

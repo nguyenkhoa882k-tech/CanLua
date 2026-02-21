@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -40,7 +40,7 @@ export default function BuyerDetail() {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const { alertConfig, showAlert, hideAlert } = useCustomAlert();
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const b = await getBuyer(buyerId);
     setBuyer(b);
     const sellersData = (await getSettingValue(`sellers_${buyerId}`)) || [];
@@ -101,27 +101,21 @@ export default function BuyerDetail() {
       }),
     );
 
-    console.log('📦 BuyerDetail - Total bags:', totalBagsCount);
-    console.log(
-      '📦 BuyerDetail - Total kg:',
-      Math.round(totalKgCount * 10) / 10,
-    );
-
     setSellers(sellersWithStatus);
     setTotalBags(totalBagsCount);
     setTotalKg(Math.round(totalKgCount * 10) / 10);
-  };
+  }, [buyerId]);
 
   // Load data on mount and when buyerId changes
   useEffect(() => {
     loadData();
-  }, [buyerId]);
+  }, [buyerId, loadData]);
 
   // Setup navigation listener separately
   useEffect(() => {
     const unsub = navigation.addListener('focus', loadData);
     return () => unsub();
-  }, [navigation]);
+  }, [navigation, loadData]);
 
   const openModal = () => {
     setModalVisible(true);

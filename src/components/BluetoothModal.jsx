@@ -30,14 +30,6 @@ export default function BluetoothModal({ visible, onClose }) {
     clearError();
     setHasScanned(true);
     try {
-      console.log('🔍 Modal: Starting scan...');
-      const foundDevices = await scanDevices();
-      console.log(
-        '✅ Modal: Scan complete, found:',
-        foundDevices?.length || 0,
-        foundDevices,
-      );
-      console.log('📊 Modal: Current devices state:', devices);
     } catch (err) {
       console.error('❌ Modal: Scan error:', err);
       const errorMessage =
@@ -48,24 +40,15 @@ export default function BluetoothModal({ visible, onClose }) {
 
   // Auto-scan when modal opens (only if not connected and hasn't scanned yet)
   useEffect(() => {
-    console.log('🔄 Modal useEffect:', { visible, isConnected, hasScanned });
-
     if (visible && !isConnected && !hasScanned) {
-      console.log('🚀 Auto-starting scan...');
       handleScan();
     }
 
     // Reset hasScanned when modal closes
     if (!visible) {
-      console.log('🔄 Modal closed, resetting hasScanned');
       setHasScanned(false);
     }
   }, [visible, isConnected, hasScanned, handleScan]);
-
-  // Debug: Log devices changes
-  useEffect(() => {
-    console.log('🔄 Modal: devices changed:', devices?.length || 0, devices);
-  }, [devices]);
 
   const handleConnect = async deviceId => {
     setLocalError(null);
@@ -88,7 +71,6 @@ export default function BluetoothModal({ visible, onClose }) {
   const displayError = error || localError;
 
   const renderDeviceItem = ({ item, index }) => {
-    console.log('🎨 FlatList rendering device:', index, item);
     return (
       <TouchableOpacity
         onPress={() => handleConnect(item.id)}

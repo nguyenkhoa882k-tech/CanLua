@@ -10,7 +10,6 @@ import { migrateDataToSQLite } from './src/services/migration';
 import { bootstrapAutoBackupScheduler } from './src/services/autoBackup';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { useBluetoothStore } from './src/stores/useBluetoothStore';
-import logger from './src/utils/logger';
 import BuyerList from './src/screens/BuyerList.jsx';
 import BuyerDetail from './src/screens/BuyerDetail.jsx';
 import SellerDetail from './src/screens/SellerDetail.jsx';
@@ -34,28 +33,21 @@ function App() {
       try {
         // First initialize the database
         await initDatabase();
-        logger.log('Database initialized');
 
         // Then migrate existing data from AsyncStorage
         const migrationResult = await migrateDataToSQLite();
         if (migrationResult.success) {
           if (migrationResult.alreadyMigrated) {
-            logger.log('Data already migrated');
           } else {
-            logger.log('Data migrated successfully:', migrationResult);
           }
         } else {
-          logger.error('Migration failed:', migrationResult.error);
         }
 
         setDbInitialized(true);
 
         // Start auto backup scheduler after database is ready
-        bootstrapAutoBackupScheduler().catch(error => {
-          logger.warn('Không thể khởi động bộ hẹn giờ sao lưu', error);
-        });
+        bootstrapAutoBackupScheduler().catch(error => {});
       } catch (error) {
-        logger.error('Failed to initialize app:', error);
         // Still set to true to allow app to start even if init fails
         setDbInitialized(true);
       }
