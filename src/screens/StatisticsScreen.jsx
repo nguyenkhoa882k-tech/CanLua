@@ -191,9 +191,9 @@ export default function StatisticsScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
-      <View className="bg-emerald-500 pt-12 pb-6 px-5 rounded-b-3xl">
-        <Text className="text-3xl font-bold text-white mb-2">📊 Thống kê</Text>
-        <Text className="text-emerald-100">Tổng quan hoạt động</Text>
+      <View className="bg-emerald-500 pt-10 pb-4 px-4 rounded-b-2xl">
+        <Text className="text-2xl font-bold text-white mb-1">📊 Thống kê</Text>
+        <Text className="text-emerald-100 text-xs">Tổng quan hoạt động</Text>
       </View>
 
       {/* Banner Ad */}
@@ -201,19 +201,21 @@ export default function StatisticsScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Year Selector */}
-        <View className="flex-row items-center justify-center px-5 mt-4 mb-2">
+        <View className="flex-row items-center justify-center px-4 mt-3 mb-2">
           <TouchableOpacity
             onPress={() => setSelectedYear(selectedYear - 1)}
-            className="bg-blue-500 px-4 py-2 rounded-xl"
+            className="bg-blue-500 px-3 py-1.5 rounded-lg"
           >
-            <Text className="text-white font-bold">← {selectedYear - 1}</Text>
+            <Text className="text-white font-bold text-sm">
+              ← {selectedYear - 1}
+            </Text>
           </TouchableOpacity>
 
           <View
-            className="mx-4 bg-white px-6 py-3 rounded-xl"
+            className="mx-3 bg-white px-4 py-2 rounded-lg"
             style={styles.shadow}
           >
-            <Text className="text-2xl font-bold text-emerald-600">
+            <Text className="text-xl font-bold text-emerald-600">
               {selectedYear}
             </Text>
           </View>
@@ -221,14 +223,14 @@ export default function StatisticsScreen() {
           <TouchableOpacity
             onPress={() => setSelectedYear(selectedYear + 1)}
             disabled={selectedYear >= new Date().getFullYear()}
-            className={`px-4 py-2 rounded-xl ${
+            className={`px-3 py-1.5 rounded-lg ${
               selectedYear >= new Date().getFullYear()
                 ? 'bg-gray-300'
                 : 'bg-blue-500'
             }`}
           >
             <Text
-              className={`font-bold ${
+              className={`font-bold text-sm ${
                 selectedYear >= new Date().getFullYear()
                   ? 'text-gray-500'
                   : 'text-white'
@@ -242,64 +244,62 @@ export default function StatisticsScreen() {
         {/* Summary Cards */}
         <View style={styles.summaryContainer}>
           <View style={styles.summaryCard}>
-            <Text className="text-4xl mb-2">🌾</Text>
-            <Text className="text-3xl font-bold text-emerald-600">
+            <Text className="text-2xl mb-1">🌾</Text>
+            <Text className="text-xl font-bold text-emerald-600">
               {formatWeight(totalKg)}
             </Text>
-            <Text className="text-gray-600 text-sm mt-1">Tổng kg</Text>
+            <Text className="text-gray-600 text-xs mt-0.5">Tổng kg</Text>
           </View>
 
           <View style={styles.summaryCard}>
-            <Text className="text-4xl mb-2">📦</Text>
-            <Text className="text-3xl font-bold text-blue-600">
-              {totalBags}
-            </Text>
-            <Text className="text-gray-600 text-sm mt-1">Tổng bao</Text>
+            <Text className="text-2xl mb-1">📦</Text>
+            <Text className="text-xl font-bold text-blue-600">{totalBags}</Text>
+            <Text className="text-gray-600 text-xs mt-0.5">Tổng bao</Text>
           </View>
         </View>
 
         <View style={styles.summaryContainer}>
           <View style={styles.summaryCard}>
-            <Text className="text-4xl mb-2">💰</Text>
-            <Text className="text-2xl font-bold text-green-600">
+            <Text className="text-2xl mb-1">💰</Text>
+            <Text className="text-base font-bold text-green-600">
               {formatMoney(transactionStats.income)}
             </Text>
-            <Text className="text-gray-600 text-sm mt-1">Thu (đ)</Text>
+            <Text className="text-gray-600 text-xs mt-0.5">Thu (đ)</Text>
           </View>
 
           <View style={styles.summaryCard}>
-            <Text className="text-4xl mb-2">💸</Text>
-            <Text className="text-2xl font-bold text-red-600">
+            <Text className="text-2xl mb-1">💸</Text>
+            <Text className="text-base font-bold text-red-600">
               {formatMoney(transactionStats.expense)}
             </Text>
-            <Text className="text-gray-600 text-sm mt-1">Chi (đ)</Text>
+            <Text className="text-gray-600 text-xs mt-0.5">Chi (đ)</Text>
           </View>
         </View>
 
         <View
-          className="mx-5 mb-4 bg-white rounded-2xl p-5"
+          className="mx-4 mb-3 bg-white rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-4xl mb-2 text-center">📈</Text>
+          <Text className="text-2xl mb-1 text-center">📈</Text>
           <Text
-            className="text-3xl font-bold text-center"
+            className="text-xl font-bold text-center"
             style={{
               color: transactionStats.profit >= 0 ? '#10b981' : '#ef4444',
             }}
           >
             {formatMoney(transactionStats.profit)} đ
           </Text>
-          <Text className="text-gray-600 text-sm mt-1 text-center">
+          <Text className="text-gray-600 text-xs mt-0.5 text-center">
             Lợi nhuận
           </Text>
         </View>
 
         {/* Monthly Weight Chart */}
         <View
-          className="mx-5 mb-4 bg-white rounded-2xl p-4"
+          className="mx-4 mb-3 bg-white rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-lg font-bold text-gray-800 mb-3">
+          <Text className="text-base font-bold text-gray-800 mb-2">
             📊 Khối lượng theo tháng (kg)
           </Text>
           {monthlyData.length > 0 && (
@@ -321,21 +321,21 @@ export default function StatisticsScreen() {
                 ],
                 datasets: [{ data: monthlyData.map(m => m.kg || 0.1) }],
               }}
-              width={SCREEN_WIDTH - 70}
-              height={220}
+              width={SCREEN_WIDTH - 56}
+              height={180}
               chartConfig={chartConfig}
               bezier
-              style={{ borderRadius: 16 }}
+              style={{ borderRadius: 12 }}
             />
           )}
         </View>
 
         {/* Monthly Bags Count Chart */}
         <View
-          className="mx-5 mb-4 bg-white rounded-2xl p-4"
+          className="mx-4 mb-3 bg-white rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-lg font-bold text-gray-800 mb-3">
+          <Text className="text-base font-bold text-gray-800 mb-2">
             📦 Số bao theo tháng
           </Text>
           {monthlyData.length > 0 && (
@@ -357,20 +357,20 @@ export default function StatisticsScreen() {
                 ],
                 datasets: [{ data: monthlyData.map(m => m.bags || 0.1) }],
               }}
-              width={SCREEN_WIDTH - 70}
-              height={220}
+              width={SCREEN_WIDTH - 56}
+              height={180}
               chartConfig={chartConfig}
-              style={{ borderRadius: 16 }}
+              style={{ borderRadius: 12 }}
             />
           )}
         </View>
 
         {/* Buyer Stats */}
         <View
-          className="mx-5 mb-4 bg-white rounded-2xl p-5"
+          className="mx-4 mb-3 bg-white rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-lg font-bold text-gray-800 mb-3">
+          <Text className="text-base font-bold text-gray-800 mb-2">
             👥 Top người mua
           </Text>
           {buyers.length > 0 ? (
@@ -382,10 +382,10 @@ export default function StatisticsScreen() {
               .map((buyer, index) => (
                 <View
                   key={buyer.id}
-                  className="flex-row items-center justify-between py-3 border-b border-gray-100"
+                  className="flex-row items-center justify-between py-2 border-b border-gray-100"
                 >
                   <View className="flex-row items-center flex-1">
-                    <Text className="text-2xl mr-3">
+                    <Text className="text-lg mr-2">
                       {index === 0
                         ? '🥇'
                         : index === 1
@@ -395,7 +395,7 @@ export default function StatisticsScreen() {
                         : '👤'}
                     </Text>
                     <View className="flex-1">
-                      <Text className="font-bold text-gray-800">
+                      <Text className="font-bold text-gray-800 text-sm">
                         {buyer.name}
                       </Text>
                       <Text className="text-gray-500 text-xs">
@@ -404,13 +404,13 @@ export default function StatisticsScreen() {
                       </Text>
                     </View>
                   </View>
-                  <Text className="font-bold text-emerald-600">
+                  <Text className="font-bold text-emerald-600 text-sm">
                     {formatWeight(buyer.totals?.weightKg || 0)} kg
                   </Text>
                 </View>
               ))
           ) : (
-            <Text className="text-gray-400 text-center py-4">
+            <Text className="text-gray-400 text-center py-3 text-sm">
               Chưa có dữ liệu
             </Text>
           )}
@@ -430,15 +430,15 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 16,
-    gap: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    gap: 8,
   },
   summaryCard: {
     flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

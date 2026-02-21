@@ -430,9 +430,9 @@ export default function SettingsScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
-      <View className="bg-emerald-500 pt-12 pb-6 px-5 rounded-b-3xl">
-        <Text className="text-3xl font-bold text-white mb-2">⚙️ Cài đặt</Text>
-        <Text className="text-emerald-100">Quản lý ứng dụng</Text>
+      <View className="bg-emerald-500 pt-10 pb-4 px-4 rounded-b-2xl">
+        <Text className="text-2xl font-bold text-white mb-1">⚙️ Cài đặt</Text>
+        <Text className="text-emerald-100 text-xs">Quản lý ứng dụng</Text>
       </View>
 
       {/* Banner Ad */}
@@ -441,23 +441,23 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* App Info */}
         <View
-          className="mx-5 mt-4 bg-white rounded-2xl p-5"
+          className="mx-4 mt-3 bg-white rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-lg font-bold text-gray-800 mb-3">
+          <Text className="text-base font-bold text-gray-800 mb-2">
             📱 Thông tin ứng dụng
           </Text>
-          <View className="py-2">
-            <Text className="text-gray-600">Tên ứng dụng</Text>
-            <Text className="text-gray-800 font-bold text-lg">Cân Lúa</Text>
+          <View className="py-1.5">
+            <Text className="text-gray-600 text-xs">Tên ứng dụng</Text>
+            <Text className="text-gray-800 font-bold text-base">Cân Lúa</Text>
           </View>
-          <View className="py-2">
-            <Text className="text-gray-600">Phiên bản</Text>
-            <Text className="text-gray-800 font-bold">1.0.0</Text>
+          <View className="py-1.5">
+            <Text className="text-gray-600 text-xs">Phiên bản</Text>
+            <Text className="text-gray-800 font-bold text-sm">1.0.0</Text>
           </View>
-          <View className="py-2">
-            <Text className="text-gray-600">Dữ liệu hiện tại</Text>
-            <Text className="text-gray-800">
+          <View className="py-1.5">
+            <Text className="text-gray-600 text-xs">Dữ liệu hiện tại</Text>
+            <Text className="text-gray-800 text-xs">
               {dataStats.buyers} người mua • {dataStats.transactions} giao dịch
               • {dataStats.weighings} lần cân
             </Text>
@@ -466,22 +466,22 @@ export default function SettingsScreen() {
 
         {/* Preferences */}
         <View
-          className="mx-5 mt-4 bg-white rounded-2xl p-5"
+          className="mx-4 mt-3 bg-white rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-lg font-bold text-gray-800 mb-3">
+          <Text className="text-base font-bold text-gray-800 mb-2">
             🔔 Tùy chọn
           </Text>
 
-          <View className="flex-row items-center justify-between py-3 border-b border-gray-100">
+          <View className="flex-row items-center justify-between py-2 border-b border-gray-100">
             <View className="flex-1">
-              <Text className="text-gray-800 font-semibold">
+              <Text className="text-gray-800 font-semibold text-sm">
                 Tự động sao lưu
               </Text>
               <Text className="text-gray-500 text-xs">
                 Sao lưu dữ liệu định kỳ
               </Text>
-              <Text className="text-gray-400 text-xs mt-1">
+              <Text className="text-gray-400 text-xs mt-0.5">
                 Lần gần nhất: {formatLastBackup(lastAutoBackupAt)}
               </Text>
             </View>
@@ -493,9 +493,9 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <View className="flex-row items-center justify-between py-3">
+          <View className="flex-row items-center justify-between py-2">
             <View className="flex-1">
-              <Text className="text-gray-800 font-semibold">
+              <Text className="text-gray-800 font-semibold text-sm">
                 Nhập hàng trăm (4 số)
               </Text>
               <Text className="text-gray-500 text-xs">
@@ -513,9 +513,9 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <View className="flex-row items-center justify-between py-3 border-t border-gray-100">
+          <View className="flex-row items-center justify-between py-2 border-t border-gray-100">
             <View className="flex-1">
-              <Text className="text-gray-800 font-semibold">
+              <Text className="text-gray-800 font-semibold text-sm">
                 Kết nối cân Bluetooth
               </Text>
               <Text className="text-gray-500 text-xs">
@@ -524,11 +524,11 @@ export default function SettingsScreen() {
                   : 'Kết nối với cân điện tử'}
               </Text>
             </View>
-            <View className="flex-row items-center" style={{ gap: 8 }}>
+            <View className="flex-row items-center" style={{ gap: 6 }}>
               {bluetoothEnabled && (
                 <TouchableOpacity
                   onPress={() => setBluetoothModalVisible(true)}
-                  className="bg-blue-500 px-3 py-2 rounded-lg"
+                  className="bg-blue-500 px-2 py-1 rounded-lg"
                 >
                   <Text className="text-white text-xs font-bold">
                     {isConnected ? '📡' : '🔍'}
@@ -553,21 +553,23 @@ export default function SettingsScreen() {
 
         {/* Data Management */}
         <View
-          className="mx-5 mt-4 bg-white rounded-2xl p-5"
+          className="mx-4 mt-3 bg-white rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-lg font-bold text-gray-800 mb-3">
+          <Text className="text-base font-bold text-gray-800 mb-2">
             💾 Quản lý dữ liệu
           </Text>
 
           <TouchableOpacity
             onPress={handleExportData}
-            className="bg-blue-50 rounded-xl p-4 mb-3"
+            className="bg-blue-50 rounded-lg p-3 mb-2"
           >
             <View className="flex-row items-center">
-              <Text className="text-3xl mr-3">📤</Text>
+              <Text className="text-2xl mr-2">📤</Text>
               <View className="flex-1">
-                <Text className="font-bold text-blue-700">Xuất dữ liệu</Text>
+                <Text className="font-bold text-blue-700 text-sm">
+                  Xuất dữ liệu
+                </Text>
                 <Text className="text-blue-600 text-xs">
                   Sao lưu dữ liệu ra file
                 </Text>
@@ -577,12 +579,14 @@ export default function SettingsScreen() {
 
           <TouchableOpacity
             onPress={handleImportData}
-            className="bg-gray-50 rounded-xl p-4 mb-3"
+            className="bg-gray-50 rounded-lg p-3 mb-2"
           >
             <View className="flex-row items-center">
-              <Text className="text-3xl mr-3">📥</Text>
+              <Text className="text-2xl mr-2">📥</Text>
               <View className="flex-1">
-                <Text className="font-bold text-gray-700">Nhập dữ liệu</Text>
+                <Text className="font-bold text-gray-700 text-sm">
+                  Nhập dữ liệu
+                </Text>
                 <Text className="text-gray-600 text-xs">
                   Khôi phục từ file sao lưu
                 </Text>
@@ -592,12 +596,12 @@ export default function SettingsScreen() {
 
           <TouchableOpacity
             onPress={handleClearData}
-            className="bg-red-50 rounded-xl p-4"
+            className="bg-red-50 rounded-lg p-3"
           >
             <View className="flex-row items-center">
-              <Text className="text-3xl mr-3">🗑️</Text>
+              <Text className="text-2xl mr-2">🗑️</Text>
               <View className="flex-1">
-                <Text className="font-bold text-red-700">
+                <Text className="font-bold text-red-700 text-sm">
                   Xóa tất cả dữ liệu
                 </Text>
                 <Text className="text-red-600 text-xs">
@@ -610,21 +614,21 @@ export default function SettingsScreen() {
 
         {/* Quick Actions */}
         <View
-          className="mx-5 mt-4 bg-white rounded-2xl p-5"
+          className="mx-4 mt-3 bg-white rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-lg font-bold text-gray-800 mb-3">
+          <Text className="text-base font-bold text-gray-800 mb-2">
             ⚡ Thao tác nhanh
           </Text>
 
           <TouchableOpacity
             onPress={handleMonthlyReport}
-            className="bg-emerald-50 rounded-xl p-4 mb-3"
+            className="bg-emerald-50 rounded-lg p-3 mb-2"
           >
             <View className="flex-row items-center">
-              <Text className="text-3xl mr-3">📊</Text>
+              <Text className="text-2xl mr-2">📊</Text>
               <View className="flex-1">
-                <Text className="font-bold text-emerald-700">
+                <Text className="font-bold text-emerald-700 text-sm">
                   Báo cáo tháng
                 </Text>
                 <Text className="text-emerald-600 text-xs">
@@ -636,12 +640,14 @@ export default function SettingsScreen() {
 
           <TouchableOpacity
             onPress={handleYearlyReport}
-            className="bg-purple-50 rounded-xl p-4 mb-3"
+            className="bg-purple-50 rounded-lg p-3 mb-2"
           >
             <View className="flex-row items-center">
-              <Text className="text-3xl mr-3">📈</Text>
+              <Text className="text-2xl mr-2">📈</Text>
               <View className="flex-1">
-                <Text className="font-bold text-purple-700">Báo cáo năm</Text>
+                <Text className="font-bold text-purple-700 text-sm">
+                  Báo cáo năm
+                </Text>
                 <Text className="text-purple-600 text-xs">
                   Xem báo cáo năm hiện tại
                 </Text>
@@ -651,12 +657,14 @@ export default function SettingsScreen() {
 
           <TouchableOpacity
             onPress={handleReminders}
-            className="bg-orange-50 rounded-xl p-4"
+            className="bg-orange-50 rounded-lg p-3"
           >
             <View className="flex-row items-center">
-              <Text className="text-3xl mr-3">🔔</Text>
+              <Text className="text-2xl mr-2">🔔</Text>
               <View className="flex-1">
-                <Text className="font-bold text-orange-700">Nhắc nhở</Text>
+                <Text className="font-bold text-orange-700 text-sm">
+                  Nhắc nhở
+                </Text>
                 <Text className="text-orange-600 text-xs">
                   Cài đặt nhắc nhở công việc
                 </Text>
@@ -667,18 +675,18 @@ export default function SettingsScreen() {
 
         {/* About */}
         <View
-          className="mx-5 mt-4 bg-white rounded-2xl p-5"
+          className="mx-4 mt-3 bg-white rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-lg font-bold text-gray-800 mb-3">
+          <Text className="text-base font-bold text-gray-800 mb-2">
             ℹ️ Về ứng dụng
           </Text>
-          <Text className="text-gray-600 leading-6">
+          <Text className="text-gray-600 leading-5 text-xs">
             Ứng dụng Cân Lúa giúp nông dân quản lý việc mua bán lúa gạo một cách
             dễ dàng và hiệu quả. Theo dõi khối lượng, tính toán tiền, quản lý
             thu chi và xem thống kê chi tiết.
           </Text>
-          <View className="mt-4 pt-4 border-t border-gray-100">
+          <View className="mt-3 pt-3 border-t border-gray-100">
             <Text className="text-gray-500 text-xs text-center">
               © 2024 Cân Lúa. All rights reserved.
             </Text>
@@ -687,18 +695,18 @@ export default function SettingsScreen() {
 
         {/* Support */}
         <View
-          className="mx-5 mt-4 mb-4 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-2xl p-5"
+          className="mx-4 mt-3 mb-3 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-xl font-bold text-white mb-2">💚 Hỗ trợ</Text>
-          <Text className="text-white mb-4">
+          <Text className="text-lg font-bold text-white mb-1">💚 Hỗ trợ</Text>
+          <Text className="text-white mb-3 text-xs">
             Nếu bạn gặp vấn đề hoặc có góp ý, vui lòng liên hệ với chúng tôi.
           </Text>
           <TouchableOpacity
             onPress={handleSupport}
-            className="bg-white rounded-xl py-3"
+            className="bg-white rounded-lg py-2"
           >
-            <Text className="text-emerald-600 font-bold text-center">
+            <Text className="text-emerald-600 font-bold text-center text-sm">
               📧 Liên hệ hỗ trợ
             </Text>
           </TouchableOpacity>
@@ -728,6 +736,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
 });

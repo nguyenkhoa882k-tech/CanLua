@@ -182,9 +182,9 @@ export default function TransactionsScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
-      <View className="bg-emerald-500 pt-12 pb-6 px-5 rounded-b-3xl">
-        <Text className="text-3xl font-bold text-white mb-2">💰 Thu Chi</Text>
-        <Text className="text-emerald-100">Quản lý tài chính</Text>
+      <View className="bg-emerald-500 pt-10 pb-4 px-4 rounded-b-2xl">
+        <Text className="text-2xl font-bold text-white mb-1">💰 Thu Chi</Text>
+        <Text className="text-emerald-100 text-xs">Quản lý tài chính</Text>
       </View>
 
       {/* Banner Ad */}
@@ -194,19 +194,19 @@ export default function TransactionsScreen() {
         {/* Summary Cards */}
         <View style={styles.summaryContainer}>
           <View style={[styles.summaryCard, { backgroundColor: '#d1fae5' }]}>
-            <Text className="text-2xl mb-1">📈</Text>
-            <Text className="text-xl font-bold text-green-700">
+            <Text className="text-lg mb-0.5">📈</Text>
+            <Text className="text-base font-bold text-green-700">
               {formatMoney(totalIncome)}
             </Text>
-            <Text className="text-green-600 text-xs mt-1">Thu</Text>
+            <Text className="text-green-600 text-xs mt-0.5">Thu</Text>
           </View>
 
           <View style={[styles.summaryCard, { backgroundColor: '#fee2e2' }]}>
-            <Text className="text-2xl mb-1">📉</Text>
-            <Text className="text-xl font-bold text-red-700">
+            <Text className="text-lg mb-0.5">📉</Text>
+            <Text className="text-base font-bold text-red-700">
               {formatMoney(totalExpense)}
             </Text>
-            <Text className="text-red-600 text-xs mt-1">Chi</Text>
+            <Text className="text-red-600 text-xs mt-0.5">Chi</Text>
           </View>
 
           <View
@@ -215,16 +215,16 @@ export default function TransactionsScreen() {
               { backgroundColor: balance >= 0 ? '#dbeafe' : '#fef3c7' },
             ]}
           >
-            <Text className="text-2xl mb-1">💵</Text>
+            <Text className="text-lg mb-0.5">💵</Text>
             <Text
-              className={`text-xl font-bold ${
+              className={`text-base font-bold ${
                 balance >= 0 ? 'text-blue-700' : 'text-yellow-700'
               }`}
             >
               {formatMoney(balance)}
             </Text>
             <Text
-              className={`text-xs mt-1 ${
+              className={`text-xs mt-0.5 ${
                 balance >= 0 ? 'text-blue-600' : 'text-yellow-600'
               }`}
             >
@@ -236,16 +236,16 @@ export default function TransactionsScreen() {
         {/* Charts */}
         {incomePieData.length > 0 && (
           <View
-            className="mx-5 mb-4 bg-white rounded-2xl p-4"
+            className="mx-4 mb-3 bg-white rounded-xl p-3"
             style={styles.shadow}
           >
-            <Text className="text-lg font-bold text-gray-800 mb-3">
+            <Text className="text-base font-bold text-gray-800 mb-2">
               📊 Thu theo loại
             </Text>
             <PieChart
               data={incomePieData}
-              width={SCREEN_WIDTH - 70}
-              height={200}
+              width={SCREEN_WIDTH - 56}
+              height={160}
               chartConfig={{
                 color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
               }}
@@ -259,16 +259,16 @@ export default function TransactionsScreen() {
 
         {expensePieData.length > 0 && (
           <View
-            className="mx-5 mb-4 bg-white rounded-2xl p-4"
+            className="mx-4 mb-3 bg-white rounded-xl p-3"
             style={styles.shadow}
           >
-            <Text className="text-lg font-bold text-gray-800 mb-3">
+            <Text className="text-base font-bold text-gray-800 mb-2">
               📊 Chi theo loại
             </Text>
             <PieChart
               data={expensePieData}
-              width={SCREEN_WIDTH - 70}
-              height={200}
+              width={SCREEN_WIDTH - 56}
+              height={160}
               chartConfig={{
                 color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
               }}
@@ -281,15 +281,15 @@ export default function TransactionsScreen() {
         )}
 
         {/* Filter */}
-        <View className="flex-row px-5 mb-4" style={{ gap: 8 }}>
+        <View className="flex-row px-4 mb-3" style={{ gap: 6 }}>
           <TouchableOpacity
             onPress={() => setFilter('all')}
-            className={`flex-1 py-3 rounded-xl ${
+            className={`flex-1 py-2 rounded-lg ${
               filter === 'all' ? 'bg-emerald-500' : 'bg-gray-200'
             }`}
           >
             <Text
-              className={`text-center font-bold ${
+              className={`text-center font-bold text-sm ${
                 filter === 'all' ? 'text-white' : 'text-gray-600'
               }`}
             >
@@ -298,12 +298,12 @@ export default function TransactionsScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setFilter('income')}
-            className={`flex-1 py-3 rounded-xl ${
+            className={`flex-1 py-2 rounded-lg ${
               filter === 'income' ? 'bg-green-500' : 'bg-gray-200'
             }`}
           >
             <Text
-              className={`text-center font-bold ${
+              className={`text-center font-bold text-sm ${
                 filter === 'income' ? 'text-white' : 'text-gray-600'
               }`}
             >
@@ -312,12 +312,12 @@ export default function TransactionsScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setFilter('expense')}
-            className={`flex-1 py-3 rounded-xl ${
+            className={`flex-1 py-2 rounded-lg ${
               filter === 'expense' ? 'bg-red-500' : 'bg-gray-200'
             }`}
           >
             <Text
-              className={`text-center font-bold ${
+              className={`text-center font-bold text-sm ${
                 filter === 'expense' ? 'text-white' : 'text-gray-600'
               }`}
             >
@@ -327,20 +327,20 @@ export default function TransactionsScreen() {
         </View>
 
         {/* Transactions List */}
-        <View className="px-5">
+        <View className="px-4">
           {filteredTransactions.map(transaction => (
             <View
               key={transaction.id}
-              className="bg-white rounded-2xl p-4 mb-3"
+              className="bg-white rounded-xl p-3 mb-2"
               style={styles.shadow}
             >
               <View className="flex-row items-start justify-between mb-2">
                 <View className="flex-1">
-                  <View className="flex-row items-center mb-1">
-                    <Text className="text-xl mr-2">
+                  <View className="flex-row items-center mb-0.5">
+                    <Text className="text-base mr-1.5">
                       {transaction.type === 'income' ? '📈' : '📉'}
                     </Text>
-                    <Text className="font-bold text-gray-800 flex-1">
+                    <Text className="font-bold text-gray-800 flex-1 text-sm">
                       {transaction.category}
                     </Text>
                   </View>
@@ -348,13 +348,13 @@ export default function TransactionsScreen() {
                     📅 {new Date(transaction.date).toLocaleDateString('vi-VN')}
                   </Text>
                   {transaction.note ? (
-                    <Text className="text-gray-600 text-sm mt-1">
+                    <Text className="text-gray-600 text-xs mt-0.5">
                       📝 {transaction.note}
                     </Text>
                   ) : null}
                 </View>
                 <Text
-                  className={`text-xl font-bold ${
+                  className={`text-base font-bold ${
                     transaction.type === 'income'
                       ? 'text-green-600'
                       : 'text-red-600'
@@ -364,20 +364,20 @@ export default function TransactionsScreen() {
                   {formatMoney(Number(transaction.amount))}
                 </Text>
               </View>
-              <View className="flex-row" style={{ gap: 8 }}>
+              <View className="flex-row" style={{ gap: 6 }}>
                 <TouchableOpacity
                   onPress={() => openModal(transaction)}
-                  className="flex-1 bg-blue-50 py-2 rounded-xl"
+                  className="flex-1 bg-blue-50 py-1.5 rounded-lg"
                 >
-                  <Text className="text-blue-600 text-center font-semibold">
+                  <Text className="text-blue-600 text-center font-semibold text-xs">
                     ✏️ Sửa
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleDelete(transaction.id)}
-                  className="flex-1 bg-red-50 py-2 rounded-xl"
+                  className="flex-1 bg-red-50 py-1.5 rounded-lg"
                 >
-                  <Text className="text-red-600 text-center font-semibold">
+                  <Text className="text-red-600 text-center font-semibold text-xs">
                     🗑️ Xóa
                   </Text>
                 </TouchableOpacity>
@@ -386,9 +386,9 @@ export default function TransactionsScreen() {
           ))}
 
           {filteredTransactions.length === 0 && (
-            <View className="items-center py-10">
-              <Text className="text-6xl mb-3">📊</Text>
-              <Text className="text-gray-400 text-base">
+            <View className="items-center py-8">
+              <Text className="text-4xl mb-2">📊</Text>
+              <Text className="text-gray-400 text-sm">
                 Chưa có giao dịch nào
               </Text>
             </View>
@@ -399,10 +399,10 @@ export default function TransactionsScreen() {
       {/* Add Button */}
       <TouchableOpacity
         onPress={() => openModal()}
-        className="absolute bottom-20 right-5 bg-emerald-500 w-16 h-16 rounded-full items-center justify-center"
+        className="absolute bottom-20 right-5 bg-emerald-500 w-14 h-14 rounded-full items-center justify-center"
         style={styles.shadow}
       >
-        <Text className="text-white text-3xl">+</Text>
+        <Text className="text-white text-2xl">+</Text>
       </TouchableOpacity>
 
       {/* Modal */}
@@ -547,15 +547,15 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginTop: 16,
-    marginBottom: 16,
-    gap: 12,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 12,
+    gap: 8,
   },
   summaryCard: {
     flex: 1,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
