@@ -395,11 +395,89 @@ export default function SellerDetail() {
   };
 
   const onConfirm = async () => {
+    debugger;
     if (confirmed) {
       showAlert({
         title: 'Đã kết sổ',
-        message: 'Giao dịch này đã được xác nhận và kết sổ.',
-        buttons: [{ text: 'OK', onPress: hideAlert }],
+        message:
+          'Giao dịch này đã được xác nhận và kết sổ.\n\nBạn có muốn mở lại sổ để chỉnh sửa?',
+        buttons: [
+          { text: 'Đóng', onPress: hideAlert },
+          {
+            text: 'Mở sổ',
+            style: 'destructive',
+            onPress: async () => {
+              hideAlert();
+              // Set confirmed to false
+              const key = `weighing_${buyerId}_${seller?.id}`;
+              await setSettingValue(key, {
+                tables,
+                tarePerBag,
+                impurity,
+                deposit,
+                paid,
+                confirmed: false, // Set to false
+                locked,
+                unitPrice,
+                currentTableIndex,
+                updatedAt: new Date().toISOString(),
+              });
+
+              setConfirmed(false);
+
+              // Recalculate totals excluding this weighing
+              const sellersData =
+                (await getSettingValue(`sellers_${buyerId}`)) || [];
+              let totalWeight = 0;
+              let totalWeighCount = 0;
+
+              // Get settings for correct divisor
+              const settings = await getSettings();
+              const divisor = settings && settings.fourDigitInput ? 100 : 10;
+
+              // Calculate totals from all confirmed weighings (excluding current)
+              for (const s of sellersData) {
+                const weighKey = `weighing_${buyerId}_${s.id}`;
+                const weighData = await getSettingValue(weighKey);
+
+                if (weighData && weighData.confirmed) {
+                  const tablesToCalc = weighData.tables || [];
+
+                  // Calculate weight from ALL rows in ALL tables
+                  for (const table of tablesToCalc) {
+                    const tableWeight = table.rows.reduce((rowSum, row) => {
+                      return (
+                        rowSum +
+                        Object.values(row).reduce(
+                          (cellSum, val) =>
+                            cellSum + safeDivide(safeNumber(val), divisor),
+                          0,
+                        )
+                      );
+                    }, 0);
+
+                    totalWeight += tableWeight;
+                    totalWeighCount += 1;
+                  }
+                }
+              }
+
+              // Update buyer with new totals
+              await updateBuyer(buyerId, {
+                totals: {
+                  weightKg: Math.round(totalWeight * 10) / 10,
+                  weighCount: totalWeighCount,
+                },
+              });
+
+              showAlert({
+                title: 'Đã mở sổ',
+                message: 'Bạn có thể chỉnh sửa lại giao dịch này.',
+                buttons: [{ text: 'OK', onPress: hideAlert }],
+              });
+            },
+          },
+        ],
       });
     } else {
       showAlert({
@@ -486,6 +564,7 @@ export default function SellerDetail() {
       });
     }
   };
+  console.log('confirmed', confirmed);
 
   return (
     <View style={styles.container}>
@@ -670,16 +749,10 @@ export default function SellerDetail() {
 
           <TouchableOpacity
             onPress={onConfirm}
-            className={`rounded-xl py-3 items-center ${
-              confirmed ? 'bg-gray-300' : 'bg-emerald-500'
-            }`}
-            disabled={confirmed}
+            className={`rounded-xl py-3 items-center bg-emerald-500`}
+            // disabled={confirmed}
           >
-            <Text
-              className={`font-bold text-sm ${
-                confirmed ? 'text-gray-500' : 'text-white'
-              }`}
-            >
+            <Text className={`font-bold text-sm text-white`}>
               {confirmed ? '✅ Đã kết sổ' : '✅ Xác nhận và kết sổ'}
             </Text>
           </TouchableOpacity>
