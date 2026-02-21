@@ -1,26 +1,43 @@
 import { useEffect } from 'react';
-import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
+import {
+  InterstitialAd,
+  AdEventType,
+  TestIds,
+} from 'react-native-google-mobile-ads';
 
 let adLoadCount = 0;
-const adUnitId = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-xxxxxxxxxxxxx/yyyyyyyyyy';
 
 export const useInterstitialAd = () => {
   useEffect(() => {
+    // Only show ads in development mode
+    if (!__DEV__) {
+      return;
+    }
+
     adLoadCount++;
-    
+
     // Show ad every 3rd screen visit
     if (adLoadCount % 3 === 0) {
-      const interstitial = InterstitialAd.createForAdRequest(adUnitId, {
-        requestNonPersonalizedAdsOnly: true,
-      });
+      const interstitial = InterstitialAd.createForAdRequest(
+        TestIds.INTERSTITIAL,
+        {
+          requestNonPersonalizedAdsOnly: true,
+        },
+      );
 
-      const unsubscribeLoaded = interstitial.addAdEventListener(AdEventType.LOADED, () => {
-        interstitial.show();
-      });
+      const unsubscribeLoaded = interstitial.addAdEventListener(
+        AdEventType.LOADED,
+        () => {
+          interstitial.show();
+        },
+      );
 
-      const unsubscribeClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
-        // Ad closed
-      });
+      const unsubscribeClosed = interstitial.addAdEventListener(
+        AdEventType.CLOSED,
+        () => {
+          // Ad closed
+        },
+      );
 
       interstitial.load();
 

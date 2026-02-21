@@ -205,6 +205,16 @@ export default function SellerDetail() {
     };
   }, [saveData]);
 
+  // Save data when navigating away (back button)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', async e => {
+      // Save data immediately before leaving
+      await saveData();
+    });
+
+    return unsubscribe;
+  }, [navigation, saveData]);
+
   // Memoize divisor to avoid recalculation
   const digitDivisor = useMemo(() => (maxDigits === 4 ? 100 : 10), [maxDigits]);
 

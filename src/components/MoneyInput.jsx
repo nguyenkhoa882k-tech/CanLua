@@ -7,6 +7,7 @@ export function MoneyInput({
   value,
   onChangeText,
   placeholderTextColor = '#9ca3af',
+  style,
   ...props
 }) {
   const formatMoney = text => {
@@ -32,6 +33,7 @@ export function MoneyInput({
       }}
       keyboardType="numeric"
       placeholderTextColor={placeholderTextColor}
+      style={[{ color: '#1f2937' }, style]}
     />
   );
 }
@@ -44,6 +46,7 @@ export const WeightInput = React.forwardRef(
       onChangeText,
       maxDigits = 3,
       placeholderTextColor = '#9ca3af',
+      style,
       ...props
     },
     ref,
@@ -72,6 +75,7 @@ export const WeightInput = React.forwardRef(
         onChangeText={handleChange}
         keyboardType="numeric"
         placeholderTextColor={placeholderTextColor}
+        style={[{ color: '#1f2937' }, style]}
         // Don't use maxLength - let handleChange control the length
       />
     );
@@ -83,6 +87,7 @@ export function DecimalInput({
   value,
   onChangeText,
   placeholderTextColor = '#9ca3af',
+  style,
   ...props
 }) {
   const handleChange = text => {
@@ -108,6 +113,7 @@ export function DecimalInput({
       onChangeText={handleChange}
       keyboardType="decimal-pad"
       placeholderTextColor={placeholderTextColor}
+      style={[{ color: '#1f2937' }, style]}
     />
   );
 }

@@ -19,7 +19,9 @@ import {
 } from '../services/settings';
 import { MoneyInput } from '../components/MoneyInput';
 import CustomAlert from '../components/CustomAlert';
+import Toast from '../components/Toast';
 import { useCustomAlert } from '../hooks/useCustomAlert';
+import { useToast } from '../hooks/useToast';
 import { formatMoney, formatWeight } from '../utils/numberUtils';
 
 const genId = () =>
@@ -39,6 +41,7 @@ export default function BuyerDetail() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const { alertConfig, showAlert, hideAlert } = useCustomAlert();
+  const { toastConfig, showToast, hideToast } = useToast();
 
   const loadData = useCallback(async () => {
     const b = await getBuyer(buyerId);
@@ -154,10 +157,14 @@ export default function BuyerDetail() {
   };
 
   const onAddSeller = async () => {
-    if (!name.trim())
-      return showAlert('Thiếu thông tin', 'Vui lòng nhập tên người bán');
-    if (!price.trim())
-      return showAlert('Thiếu thông tin', 'Vui lòng nhập đơn giá');
+    if (!name.trim()) {
+      showToast('⚠️ Vui lòng nhập tên người bán');
+      return;
+    }
+    if (!price.trim()) {
+      showToast('⚠️ Vui lòng nhập đơn giá');
+      return;
+    }
     const seller = {
       id: genId(),
       name: name.trim(),
@@ -379,6 +386,14 @@ export default function BuyerDetail() {
         message={alertConfig.message}
         buttons={alertConfig.buttons}
         onDismiss={hideAlert}
+      />
+
+      {/* Toast */}
+      <Toast
+        visible={toastConfig.visible}
+        message={toastConfig.message}
+        duration={toastConfig.duration}
+        onHide={hideToast}
       />
     </View>
   );

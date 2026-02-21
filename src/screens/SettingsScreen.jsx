@@ -699,8 +699,8 @@ export default function SettingsScreen() {
           className="mx-4 mt-3 mb-3 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-xl p-3"
           style={styles.shadow}
         >
-          <Text className="text-lg font-bold text-white mb-1">💚 Hỗ trợ</Text>
-          <Text className="text-white mb-3 text-xs">
+          <Text className="text-lg font-bold text-black mb-1">💚 Hỗ trợ</Text>
+          <Text className="text-black mb-3 text-xs">
             Nếu bạn gặp vấn đề hoặc có góp ý, vui lòng liên hệ với chúng tôi.
           </Text>
           <TouchableOpacity

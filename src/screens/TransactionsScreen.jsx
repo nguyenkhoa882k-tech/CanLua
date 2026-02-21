@@ -503,6 +503,7 @@ export default function TransactionsScreen() {
             <TextInput
               className="bg-gray-50 rounded-xl px-4 py-3 text-base border border-gray-200 mb-6"
               placeholder="Nhập ghi chú..."
+              placeholderTextColor="#9ca3af"
               value={note}
               onChangeText={setNote}
               multiline

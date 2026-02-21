@@ -21,7 +21,9 @@ import { getSettings, getSettingValue } from '../services/settings';
 import BannerAd from '../components/BannerAd';
 import SimpleDatePicker from '../components/SimpleDatePicker';
 import CustomAlert from '../components/CustomAlert';
+import Toast from '../components/Toast';
 import { useCustomAlert } from '../hooks/useCustomAlert';
+import { useToast } from '../hooks/useToast';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { formatWeight } from '../utils/numberUtils';
 
@@ -42,6 +44,7 @@ export default function BuyerList() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const { alertConfig, showAlert, hideAlert } = useCustomAlert();
+  const { toastConfig, showToast, hideToast } = useToast();
 
   const loadBuyers = async () => {
     const data = await listBuyers();
@@ -212,8 +215,10 @@ export default function BuyerList() {
   };
 
   const onSave = async () => {
-    if (!name.trim())
-      return showAlert('Thiếu thông tin', 'Vui lòng nhập tên chủ nhóm/ghe/xe');
+    if (!name.trim()) {
+      showToast('⚠️ Vui lòng nhập tên chủ nhóm/ghe/xe');
+      return;
+    }
 
     if (editingBuyer) {
       await updateBuyer({
@@ -465,6 +470,7 @@ export default function BuyerList() {
               <TextInput
                 className="bg-gray-50 rounded-xl px-4 py-3 text-base border border-gray-200"
                 placeholder="Nhập tên chủ ghe..."
+                placeholderTextColor="#9ca3af"
                 value={name}
                 onChangeText={setName}
                 autoFocus
@@ -478,6 +484,7 @@ export default function BuyerList() {
               <TextInput
                 className="bg-gray-50 rounded-xl px-4 py-3 text-base border border-gray-200"
                 placeholder="Nhập số điện thoại..."
+                placeholderTextColor="#9ca3af"
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
@@ -654,6 +661,14 @@ export default function BuyerList() {
         message={alertConfig.message}
         buttons={alertConfig.buttons}
         onDismiss={hideAlert}
+      />
+
+      {/* Toast */}
+      <Toast
+        visible={toastConfig.visible}
+        message={toastConfig.message}
+        duration={toastConfig.duration}
+        onHide={hideToast}
       />
     </View>
   );
